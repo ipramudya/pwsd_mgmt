@@ -9,4 +9,4 @@ type Bindings = {
 };
 
 export type AppContext = Context<{ Bindings: Bindings; Variables: Variables }>;
-export type AppHono = { Bindings: Bindings };
+export type AppHono = { Bindings: Bindings; Variables: Variables };

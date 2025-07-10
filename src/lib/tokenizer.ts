@@ -1,4 +1,4 @@
-import jwt from 'hono/jwt';
+import { sign, verify } from 'hono/jwt';
 import type { AppContext } from '../types';
 
 export type JWTPayload = {
@@ -33,10 +33,7 @@ export async function generateTokenPair(
     exp: Math.floor(Date.now() / 1000) + FIVE_MINUTES_IN_SECONDS,
   };
 
-  const accessToken = await jwt.sign(
-    accessTokenPayload,
-    c.env.JWT_SECRET_ACCESS
-  );
+  const accessToken = await sign(accessTokenPayload, c.env.JWT_SECRET_ACCESS);
 
   const refreshTokenPayload = {
     ...payload,
@@ -44,7 +41,7 @@ export async function generateTokenPair(
     exp: Math.floor(Date.now() / 1000) + ONE_WEEK_IN_SECONDS,
   };
 
-  const refreshToken = await jwt.sign(
+  const refreshToken = await sign(
     refreshTokenPayload,
     c.env.JWT_SECRET_REFRESH
   );
@@ -57,7 +54,7 @@ export async function validateAccessToken(
   token: string
 ): Promise<TokenValidationResult> {
   try {
-    const payload = (await jwt.verify(
+    const payload = (await verify(
       token,
       c.env.JWT_SECRET_ACCESS
     )) as JWTPayload;
@@ -76,7 +73,7 @@ export async function validateRefreshToken(
   token: string
 ): Promise<TokenValidationResult> {
   try {
-    const payload = (await jwt.verify(
+    const payload = (await verify(
       token,
       c.env.JWT_SECRET_REFRESH
     )) as JWTPayload;

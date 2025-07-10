@@ -11,11 +11,13 @@
     {
       "binding": "DB",
       "database_name": "pswd_mgmt",
-      "database_id": "044d018f-2998-405c-a602-935515037fa7"
+      "database_id": "044d018f-2998-405c-a602-935515037fa7",
+      "migrations_dir": "src/lib/migrations"
     }
   ],
   "vars": {
     "JWT_SECRET_ACCESS": "jwt:secret_jwt-secret_jwt:secret_jwt-secret__access",
     "JWT_SECRET_REFRESH": "refresh__jwt:secret_jwt-secret_jwt:secret_jwt-secret"
-  }
+  },
+  "compatibility_flags": ["nodejs_compat"]
 }
