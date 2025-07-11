@@ -15,9 +15,5 @@
       "migrations_dir": "src/lib/migrations"
     }
   ],
-  "vars": {
-    "JWT_SECRET_ACCESS": "jwt:secret_jwt-secret_jwt:secret_jwt-secret__access",
-    "JWT_SECRET_REFRESH": "refresh__jwt:secret_jwt-secret_jwt:secret_jwt-secret"
-  },
   "compatibility_flags": ["nodejs_compat"]
 }
