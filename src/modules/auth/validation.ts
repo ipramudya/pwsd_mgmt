@@ -95,9 +95,3 @@ export const authValidations = {
     'Refresh token validation failed'
   ),
 };
-
-export const authSchemas = {
-  login,
-  register,
-  refreshToken,
-};
