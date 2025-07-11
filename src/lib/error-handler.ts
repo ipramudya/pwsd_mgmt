@@ -164,3 +164,35 @@ export function errorHandler() {
     return c.json(response, 500);
   };
 }
+
+export function notFoundHandler() {
+  return (c: AppContext) => {
+    const logger = getLogger(c, 'error-handler');
+    const requestId = c.get('requestId');
+    const timestamp = new Date().toISOString();
+
+    logger.error(
+      {
+        error: {
+          code: ErrorCode.NOT_FOUND,
+          message: 'Not Found',
+          timestamp,
+          requestId,
+        },
+      },
+      'Not Found'
+    );
+
+    const response: ErrorResponse = {
+      success: false,
+      error: {
+        code: ErrorCode.NOT_FOUND,
+        message: 'Not Found',
+        timestamp,
+        requestId,
+      },
+    };
+
+    return c.json(response, 404);
+  };
+}

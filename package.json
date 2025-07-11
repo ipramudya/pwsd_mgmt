@@ -24,6 +24,6 @@
     "drizzle-kit": "^0.31.4",
     "tsx": "^4.20.3",
     "ultracite": "5.0.32",
-    "wrangler": "^4.4.0"
+    "wrangler": "^4.24.3"
   }
 }
