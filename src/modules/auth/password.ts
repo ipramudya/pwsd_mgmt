@@ -56,11 +56,15 @@ export function validatePasswordStrength(password: string): {
   }
 
   if (!SPECIAL_CHAR_REGEX.test(password)) {
-    errors.push('Password must contain at least one special character (@$!%*?&)');
+    errors.push(
+      'Password must contain at least one special character (@$!%*?&)'
+    );
   }
 
   if (CONSECUTIVE_CHARS_REGEX.test(password)) {
-    errors.push('Password must not contain more than 2 consecutive identical characters');
+    errors.push(
+      'Password must not contain more than 2 consecutive identical characters'
+    );
   }
 
   if (COMMON_PASSWORDS.includes(password.toLowerCase())) {

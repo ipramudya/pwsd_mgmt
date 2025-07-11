@@ -63,30 +63,22 @@
       "indexes": {
         "accounts_uuid_unique": {
           "name": "accounts_uuid_unique",
-          "columns": [
-            "uuid"
-          ],
+          "columns": ["uuid"],
           "isUnique": true
         },
         "accounts_username_unique": {
           "name": "accounts_username_unique",
-          "columns": [
-            "username"
-          ],
+          "columns": ["username"],
           "isUnique": true
         },
         "accounts_uuid_idx": {
           "name": "accounts_uuid_idx",
-          "columns": [
-            "uuid"
-          ],
+          "columns": ["uuid"],
           "isUnique": false
         },
         "accounts_username_idx": {
           "name": "accounts_username_idx",
-          "columns": [
-            "username"
-          ],
+          "columns": ["username"],
           "isUnique": false
         }
       },
@@ -176,30 +168,22 @@
       "indexes": {
         "blocks_uuid_unique": {
           "name": "blocks_uuid_unique",
-          "columns": [
-            "uuid"
-          ],
+          "columns": ["uuid"],
           "isUnique": true
         },
         "blocks_uuid_idx": {
           "name": "blocks_uuid_idx",
-          "columns": [
-            "uuid"
-          ],
+          "columns": ["uuid"],
           "isUnique": false
         },
         "blocks_created_by_idx": {
           "name": "blocks_created_by_idx",
-          "columns": [
-            "createdById"
-          ],
+          "columns": ["createdById"],
           "isUnique": false
         },
         "blocks_parent_idx": {
           "name": "blocks_parent_idx",
-          "columns": [
-            "parentId"
-          ],
+          "columns": ["parentId"],
           "isUnique": false
         }
       },
@@ -273,37 +257,27 @@
       "indexes": {
         "fields_uuid_unique": {
           "name": "fields_uuid_unique",
-          "columns": [
-            "uuid"
-          ],
+          "columns": ["uuid"],
           "isUnique": true
         },
         "fields_uuid_idx": {
           "name": "fields_uuid_idx",
-          "columns": [
-            "uuid"
-          ],
+          "columns": ["uuid"],
           "isUnique": false
         },
         "fields_created_by_idx": {
           "name": "fields_created_by_idx",
-          "columns": [
-            "createdById"
-          ],
+          "columns": ["createdById"],
           "isUnique": false
         },
         "fields_block_idx": {
           "name": "fields_block_idx",
-          "columns": [
-            "blockId"
-          ],
+          "columns": ["blockId"],
           "isUnique": false
         },
         "fields_type_idx": {
           "name": "fields_type_idx",
-          "columns": [
-            "type"
-          ],
+          "columns": ["type"],
           "isUnique": false
         }
       },
@@ -356,9 +330,7 @@
       "indexes": {
         "password_fields_field_idx": {
           "name": "password_fields_field_idx",
-          "columns": [
-            "fieldId"
-          ],
+          "columns": ["fieldId"],
           "isUnique": false
         }
       },
@@ -411,9 +383,7 @@
       "indexes": {
         "text_fields_field_idx": {
           "name": "text_fields_field_idx",
-          "columns": [
-            "fieldId"
-          ],
+          "columns": ["fieldId"],
           "isUnique": false
         }
       },
@@ -467,9 +437,7 @@
       "indexes": {
         "todo_fields_field_idx": {
           "name": "todo_fields_field_idx",
-          "columns": [
-            "fieldId"
-          ],
+          "columns": ["fieldId"],
           "isUnique": false
         }
       },
