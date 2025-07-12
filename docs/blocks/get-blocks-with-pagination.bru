@@ -1,0 +1,46 @@
+meta {
+  name: Get Blocks with Pagination
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/blocks?limit=5&sort=asc&sortBy=name
+  body: none
+  auth: bearer
+}
+
+params:query {
+  limit: 5
+  sort: asc
+  sortBy: name
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should respect limit parameter", function() {
+    const body = res.getBody();
+    expect(body.data.blocks.length).to.be.at.most(5);
+  });
+  
+  test("should return blocks sorted by name in ascending order", function() {
+    const body = res.getBody();
+    const blocks = body.data.blocks;
+    if (blocks.length > 1) {
+      for (let i = 1; i < blocks.length; i++) {
+        expect(blocks[i].name >= blocks[i-1].name).to.be.true;
+      }
+    }
+  });
+}

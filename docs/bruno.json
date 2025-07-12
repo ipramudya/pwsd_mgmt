@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "Password Management API",
+  "type": "collection",
+  "ignore": ["node_modules", ".git"]
+}

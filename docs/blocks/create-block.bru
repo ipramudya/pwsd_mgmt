@@ -1,0 +1,62 @@
+meta {
+  name: Create Block
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/blocks
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "My First Block",
+    "description": "This is a test block for API testing",
+    "isFinal": false
+  }
+}
+
+tests {
+  test("should return 201 status", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return created block data", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('block');
+    expect(body.data.block).to.have.property('uuid');
+    expect(body.data.block).to.have.property('name');
+    expect(body.data.block).to.have.property('description');
+    expect(body.data.block).to.have.property('deepLevel');
+    expect(body.data.block).to.have.property('isFinal');
+    expect(body.data.block).to.have.property('createdAt');
+    expect(body.data.block).to.have.property('createdById');
+  });
+  
+  test("should set correct block properties", function() {
+    const body = res.getBody();
+    const block = body.data.block;
+    expect(block.name).to.equal("My First Block");
+    expect(block.description).to.equal("This is a test block for API testing");
+    expect(block.deepLevel).to.equal(0);
+    expect(block.isFinal).to.equal(false);
+    expect(block.createdById).to.equal(bru.getEnvVar("userId"));
+  });
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const body = res.getBody();
+    bru.setEnvVar("blockUuid", body.data.block.uuid);
+  }
+}

@@ -1,0 +1,43 @@
+meta {
+  name: Create Nested Block
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/blocks
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Nested Block",
+    "description": "This is a nested block inside the first block",
+    "parentId": "{{blockUuid}}",
+    "isFinal": true
+  }
+}
+
+tests {
+  test("should return 201 status", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return nested block with correct deep level", function() {
+    const body = res.getBody();
+    const block = body.data.block;
+    expect(block.name).to.equal("Nested Block");
+    expect(block.deepLevel).to.equal(1);
+    expect(block.parentId).to.equal(bru.getEnvVar("blockUuid"));
+    expect(block.isFinal).to.equal(true);
+  });
+}

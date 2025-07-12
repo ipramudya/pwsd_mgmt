@@ -1,0 +1,53 @@
+meta {
+  name: Login User
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{username}}",
+    "password": "{{password}}"
+  }
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return user data and tokens", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('user');
+    expect(body.data).to.have.property('tokens');
+    expect(body.data.user).to.have.property('uuid');
+    expect(body.data.user).to.have.property('username');
+    expect(body.data.user).to.have.property('lastLoginAt');
+    expect(body.data.tokens).to.have.property('accessToken');
+    expect(body.data.tokens).to.have.property('refreshToken');
+  });
+  
+  test("should not return password in response", function() {
+    const body = res.getBody();
+    expect(body.data.user).to.not.have.property('password');
+  });
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    bru.setEnvVar("accessToken", body.data.tokens.accessToken);
+    bru.setEnvVar("refreshToken", body.data.tokens.refreshToken);
+    bru.setEnvVar("userId", body.data.user.uuid);
+  }
+}

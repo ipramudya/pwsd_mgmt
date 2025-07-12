@@ -1,0 +1,49 @@
+meta {
+  name: Get Blocks (Default - Level 0)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/blocks
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return blocks data with pagination", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('blocks');
+    expect(body.data).to.have.property('nextCursor');
+    expect(body.data).to.have.property('hasNext');
+    expect(body.data).to.have.property('total');
+    expect(body.data.blocks).to.be.an('array');
+  });
+  
+  test("should return only level 0 blocks by default", function() {
+    const body = res.getBody();
+    body.data.blocks.forEach(block => {
+      expect(block.deepLevel).to.equal(0);
+    });
+  });
+  
+  test("should return blocks owned by current user", function() {
+    const body = res.getBody();
+    const userId = bru.getEnvVar("userId");
+    body.data.blocks.forEach(block => {
+      expect(block.createdById).to.equal(userId);
+    });
+  });
+}
