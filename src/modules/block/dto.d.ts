@@ -2,6 +2,7 @@ export type CreateBlockRequestDto = {
   name: string;
   description?: string;
   parentId?: string;
+  blockType: 'container' | 'terminal';
 };
 
 export type GetBlocksRequestDto = {
@@ -36,6 +37,7 @@ export type BlockDto = {
   name: string;
   description: string | null;
   path: string;
+  blockType: 'container' | 'terminal';
   createdAt: Date;
   updatedAt: Date;
   createdById: string;
@@ -58,6 +60,7 @@ export type CreateBlockInput = {
   name: string;
   description?: string;
   path: string;
+  blockType: 'container' | 'terminal';
   createdById: string;
   parentId?: number;
 };
@@ -68,6 +71,7 @@ export type BlockRecord = {
   name: string;
   description: string | null;
   path: string;
+  blockType: 'container' | 'terminal';
   createdAt: Date;
   updatedAt: Date;
   createdById: string;

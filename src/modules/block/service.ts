@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NotFoundError, ValidationError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import type { AppContext } from '../../types';
+import { validateBlockTypeForChildren } from './block-type';
 import type {
   BlockDto,
   BlockRecord,
@@ -60,6 +61,18 @@ export class BlockService {
 
     const blockUuid = randomUUID();
 
+    if (parentBlock) {
+      try {
+        validateBlockTypeForChildren(parentBlock.blockType);
+      } catch {
+        this.logger.warn(
+          { parentId: input.parentId, parentBlockType: parentBlock.blockType },
+          'Block creation failed: cannot add child blocks to terminal blocks'
+        );
+        throw new ValidationError('Cannot add child blocks to terminal blocks');
+      }
+    }
+
     const createdBlock = await this.repository.createBlock({
       uuid: blockUuid,
       name: input.name,
@@ -67,6 +80,7 @@ export class BlockService {
       path: parentBlock
         ? `${parentBlock.path}${parentBlock.id}/`
         : `/${Date.now()}/`,
+      blockType: input.blockType,
       createdById,
       parentId: parentBlock?.id,
     });
@@ -291,6 +305,7 @@ export class BlockService {
       name: block.name,
       description: block.description,
       path: block.path,
+      blockType: block.blockType,
       createdAt: block.createdAt,
       updatedAt: block.updatedAt,
       createdById: block.createdById,

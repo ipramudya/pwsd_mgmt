@@ -23,6 +23,10 @@ const createBlock = z.object({
     .trim()
     .optional(),
   parentId: z.string().uuid('Parent ID must be a valid UUID').optional(),
+  blockType: z.enum(['container', 'terminal'], {
+    required_error: 'Block type is required',
+    invalid_type_error: 'Block type must be either "container" or "terminal"',
+  }),
 });
 
 const getBlocks = z.object({

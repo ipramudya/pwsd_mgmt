@@ -32,6 +32,7 @@ export const blocks = sqliteTable(
     name: text().notNull(),
     description: text(),
     path: text().notNull(),
+    blockType: text({ enum: ['container', 'terminal'] }).notNull(),
     createdAt: integer({ mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -46,6 +47,8 @@ export const blocks = sqliteTable(
     index('blocks_created_by_idx').on(t.createdById),
     index('blocks_parent_idx').on(t.parentId),
     index('blocks_path_idx').on(t.path),
+    index('blocks_block_type_idx').on(t.blockType),
+    index('blocks_container_parent_idx').on(t.parentId, t.blockType),
   ]
 );
 
