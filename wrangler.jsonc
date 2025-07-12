@@ -11,7 +11,15 @@
     "JWT_SECRET_ACCESS": "secure-jwt-access-secret-key-for-production-2025",
     "JWT_SECRET_REFRESH": "secure-jwt-refresh-secret-key-for-production-2025",
     "DB_URL": "libsql://pswdmgmt-ipramudya.aws-ap-northeast-1.turso.io",
-    "DB_TOKEN": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NTIzMzQyMTgsImlkIjoiZTc0NjM0NTAtYWJhNi00NDA3LTg5NDItY2YyNDQ1OGFjNjEwIiwicmlkIjoiMWQ1ZWNjMjQtNWVkNC00MDVkLWI5MzAtNWQ1NWRjOTg4N2UzIn0.NnpyfCnZIpL737PdKip5vZEfBOEKboEp-T1uw060V5EdHPjEDwG_TaUdoEoz7GM8DGl2Ss9yV20jpOcgS8yTAA"
+    "DB_TOKEN": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NTIzMzQyMTgsImlkIjoiZTc0NjM0NTAtYWJhNi00NDA3LTg5NDItY2YyNDQ1OGFjNjEwIiwicmlkIjoiMWQ1ZWNjMjQtNWVkNC00MDVkLWI5MzAtNWQ1NWRjOTg4N2UzIn0.NnpyfCnZIpL737PdKip5vZEfBOEKboEp-T1uw060V5EdHPjEDwG_TaUdoEoz7GM8DGl2Ss9yV20jpOcgS8yTAA",
+    "ENCRYPTION_MASTER_KEY": "secure-password-encryption-master-key-256-bit-production-2025"
   },
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "logs": {
+      "invocation_logs": false,
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  }
 }

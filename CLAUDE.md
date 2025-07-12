@@ -112,7 +112,7 @@ Todo field data:
 - Input validation using Zod schemas
 - Ownership verification - only creators can modify their data
 - Password hashing for user accounts
-- Password encryption for stored password fields
+- **AES-256-GCM Password Field Encryption**: Password fields are encrypted before storage using AES-256-GCM encryption with random initialization vectors and authentication tags. Passwords are automatically decrypted when retrieved, allowing secure storage while maintaining usability in other applications.
 - Protected routes with authentication middleware
 
 ## Architecture
@@ -146,6 +146,14 @@ Complete API documentation is available using Bruno in the `/docs` directory, in
 
 - **GET /health**: Basic health check that verifies database connectivity and returns simple status.
 - **GET /health/detailed**: Comprehensive health check including database metrics (row counts for accounts, blocks, fields), response times, and detailed status information.
+
+### Field Endpoints (Prefix: `/api/v1/fields`)
+
+- **POST /**: Creates fields in batch. Accepts an array of fields with different types (text, password, todo) and either attaches them to an existing terminal block (via blockId) or creates a new terminal block (via blockName). Each field has a name, type, and type-specific data. When creating a new block, supports optional parentId for hierarchical placement and description. Validates that target blocks are terminal type and verifies ownership. Returns created fields with their data and optionally the created block. Password fields are automatically encrypted using AES-256-GCM before storage.
+
+- **GET /block/:blockId**: Retrieves all fields for a specific block with decrypted password data. Verifies block ownership and returns fields with their type-specific data. Password fields are automatically decrypted for use in other applications while maintaining security.
+
+- **GET /:fieldId**: Retrieves a single field by its UUID with decrypted password data if applicable. Verifies field ownership and returns the field with its data. Password fields are automatically decrypted for use.
 
 ### Block Endpoints (Prefix: `/api/v1/blocks`)
 
@@ -198,3 +206,32 @@ The `/docs` directory contains comprehensive Bruno collections:
 - **Automated tests**: Validation of responses and data integrity
 
 Each endpoint includes example requests, expected responses, and automated tests to ensure API reliability.
+
+## Development Commands
+
+- **Linting**: `npm run lint` - Runs Biome linter for code quality
+- **Type checking**: `npm run typecheck` - Validates TypeScript types
+- **Development**: `npm run dev` - Starts local development server with Wrangler
+- **Deployment**: `npm run deploy` - Deploys to Cloudflare Workers
+
+## Recent Changes
+
+### Database Migration (Latest)
+- Migrated from Cloudflare D1 SQLite to Turso libSQL for enhanced performance and features
+- Updated database connection configuration in `wrangler.jsonc`
+- Modified database client imports and initialization across all modules
+- Implemented Field module with complete CRUD operations for text, password, and todo field types
+- Added AES-256-GCM encryption for password fields with automatic encryption/decryption
+
+### Field Module Implementation
+- **Complete field management system** with support for multiple field types
+- **Batch field creation** with automatic block creation when needed
+- **Type-specific data storage** in separate tables for text, password, and todo fields
+- **Ownership validation** ensuring users can only access their own fields
+- **Password field encryption** using AES-256-GCM with random IVs and auth tags
+- **Field retrieval APIs** with automatic password decryption for usability
+
+### Enhanced Block Module
+- Updated block routes to work with new libSQL database connection
+- Maintained all existing hierarchical operations and path-based queries
+- Preserved pagination, filtering, and sorting capabilities

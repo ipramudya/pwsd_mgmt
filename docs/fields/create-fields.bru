@@ -1,0 +1,85 @@
+meta {
+  name: Create Fields
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/fields
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "blockName": "Login Credentials",
+    "description": "Test block for storing login information",
+    "fields": [
+      {
+        "name": "username",
+        "type": "text",
+        "data": {
+          "text": "john.doe@example.com"
+        }
+      },
+      {
+        "name": "password",
+        "type": "password",
+        "data": {
+          "password": "SecurePassword123!"
+        }
+      },
+      {
+        "name": "remember_login",
+        "type": "todo",
+        "data": {
+          "isChecked": true
+        }
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return 201 status", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return created fields data", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('fields');
+    expect(body.data.fields).to.be.an('array');
+    expect(body.data.fields).to.have.lengthOf(3);
+  });
+  
+  test("should create block when blockName provided", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('block');
+    expect(body.data.block).to.have.property('uuid');
+    expect(body.data.block.name).to.equal("Login Credentials");
+  });
+  
+  test("should create fields with correct types", function() {
+    const body = res.getBody();
+    const fields = body.data.fields;
+    expect(fields[0].type).to.equal("text");
+    expect(fields[1].type).to.equal("password");
+    expect(fields[2].type).to.equal("todo");
+  });
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const body = res.getBody();
+    bru.setEnvVar("testBlockUuid", body.data.block.uuid);
+    bru.setEnvVar("testFieldUuid", body.data.fields[0].uuid);
+  }
+}

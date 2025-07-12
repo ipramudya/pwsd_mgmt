@@ -10,7 +10,7 @@ blockRoute.use(authMiddleware);
 
 blockRoute.post('/', blockValidations.createBlock, async (c) => {
   const body = c.req.valid('json');
-  const userId = c.get('userId') as string; // Safe to cast since auth middleware guarantees this
+  const userId = c.get('userId') as string;
 
   const blockService = new BlockService(c);
   const result = await blockService.createBlock(body, userId);

@@ -2,7 +2,7 @@
   "name": "pass-management-api",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy --minify", 
+    "deploy": "wrangler deploy --minify",
     "lint:ultracite": "ultracite lint",
     "format:ultracite": "ultracite format",
     "db": "node scripts/db.js",
