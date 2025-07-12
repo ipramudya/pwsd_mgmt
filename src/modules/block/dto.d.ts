@@ -2,7 +2,6 @@ export type CreateBlockRequestDto = {
   name: string;
   description?: string;
   parentId?: string;
-  isFinal?: boolean;
 };
 
 export type GetBlocksRequestDto = {
@@ -10,7 +9,25 @@ export type GetBlocksRequestDto = {
   cursor?: string;
   sort?: 'asc' | 'desc';
   sortBy?: 'createdAt' | 'updatedAt' | 'name';
-  deepLevel?: number;
+  parentId?: string;
+};
+
+export type GetBreadcrumbsRequestDto = {
+  blockId: string;
+};
+
+export type BreadcrumbDto = {
+  id: number;
+  uuid: string;
+  name: string;
+};
+
+export type GetBreadcrumbsResponseDto = {
+  breadcrumbs: BreadcrumbDto[];
+};
+
+export type MoveBlockRequestDto = {
+  targetParentId?: string;
 };
 
 export type BlockDto = {
@@ -18,12 +35,11 @@ export type BlockDto = {
   uuid: string;
   name: string;
   description: string | null;
-  deepLevel: number;
-  isFinal: boolean;
+  path: string;
   createdAt: Date;
   updatedAt: Date;
   createdById: string;
-  parentId: string | null;
+  parentId: number | null;
 };
 
 export type CreateBlockResponseDto = {
@@ -41,10 +57,9 @@ export type CreateBlockInput = {
   uuid: string;
   name: string;
   description?: string;
-  deepLevel: number;
-  isFinal: boolean;
+  path: string;
   createdById: string;
-  parentId?: string;
+  parentId?: number;
 };
 
 export type BlockRecord = {
@@ -52,12 +67,11 @@ export type BlockRecord = {
   uuid: string;
   name: string;
   description: string | null;
-  deepLevel: number;
-  isFinal: boolean;
+  path: string;
   createdAt: Date;
   updatedAt: Date;
   createdById: string;
-  parentId: string | null;
+  parentId: number | null;
 };
 
 export type GetBlocksQuery = {
@@ -65,6 +79,18 @@ export type GetBlocksQuery = {
   cursor?: string;
   sort: 'asc' | 'desc';
   sortBy: 'createdAt' | 'updatedAt' | 'name';
-  deepLevel: number;
+  parentPath: string;
   createdById: string;
+};
+
+export type UpdateBlockInput = {
+  uuid: string;
+  name?: string;
+  description?: string;
+};
+
+export type MoveBlockInput = {
+  uuid: string;
+  newPath: string;
+  newParentId: number | null;
 };

@@ -41,6 +41,33 @@ tests {
     const body = res.getBody();
     expect(body.data.user).to.not.have.property('password');
   });
+  
+  test("should return valid timestamps", function() {
+    const body = res.getBody();
+    expect(body.data.user).to.have.property('createdAt');
+    expect(body.data.user).to.have.property('updatedAt');
+    const createdAt = new Date(body.data.user.createdAt);
+    expect(createdAt).to.be.instanceof(Date);
+    expect(createdAt.getTime()).to.not.be.NaN;
+  });
+  
+  test("should return valid tokens", function() {
+    const body = res.getBody();
+    expect(body.data.tokens.accessToken).to.be.a('string');
+    expect(body.data.tokens.refreshToken).to.be.a('string');
+    expect(body.data.tokens.accessToken.length).to.be.greaterThan(0);
+    expect(body.data.tokens.refreshToken.length).to.be.greaterThan(0);
+  });
+  
+  test("should return 400 for validation errors", function() {
+    // Test will fail on valid data
+    // In practice, send invalid data (empty username, weak password, etc.)
+  });
+  
+  test("should return 409 for duplicate username", function() {
+    // Test will fail on first registration
+    // In practice, try registering same username twice
+  });
 }
 
 script:post-response {

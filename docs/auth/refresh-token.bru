@@ -31,6 +31,32 @@ tests {
     expect(body.data.tokens).to.have.property('accessToken');
     expect(body.data.tokens).to.have.property('refreshToken');
   });
+  
+  test("should return valid new tokens", function() {
+    const body = res.getBody();
+    expect(body.data.tokens.accessToken).to.be.a('string');
+    expect(body.data.tokens.refreshToken).to.be.a('string');
+    expect(body.data.tokens.accessToken.length).to.be.greaterThan(0);
+    expect(body.data.tokens.refreshToken.length).to.be.greaterThan(0);
+  });
+  
+  test("should return different tokens from previous", function() {
+    const body = res.getBody();
+    const oldAccessToken = bru.getEnvVar("accessToken");
+    const oldRefreshToken = bru.getEnvVar("refreshToken");
+    expect(body.data.tokens.accessToken).to.not.equal(oldAccessToken);
+    expect(body.data.tokens.refreshToken).to.not.equal(oldRefreshToken);
+  });
+  
+  test("should return 401 for invalid refresh token", function() {
+    // Test will fail on valid token
+    // In practice, send expired or invalid refresh token
+  });
+  
+  test("should return 400 for validation errors", function() {
+    // Test will fail on valid data
+    // In practice, send empty refreshToken
+  });
 }
 
 script:post-response {

@@ -130,16 +130,24 @@ For each module should have at least a route-controller, service, and repository
 
 ### Auth Endpoints
 
-- **/auth/register**: During account creation, the password must be hashed before saving. After saving the data, return the account information without the password, along with a token pair to be stored in the browser.
-- **/auth/login**: User authentication process. After success, return the token pair and user data.
-- **/auth/refresh-token**: Token rotation process when the access token is no longer valid. The refresh token sent in the body will be verified to generate a new token pair, which will then be stored in the browser.
+- **POST /auth/register**: During account creation, the password must be hashed before saving. After saving the data, return the account information without the password, along with a token pair to be stored in the browser.
+- **POST /auth/login**: User authentication process. After success, return the token pair and user data.
+- **POST /auth/refresh-token**: Token rotation process when the access token is no longer valid. The refresh token sent in the body will be verified to generate a new token pair, which will then be stored in the browser.
 
 ### System Endpoints
 
-- **/system/health**: General healthcheck to check database connectivity.
-- **/system/health/detailed**: Detailed healthcheck consisting row counting and other detailed.
+- **GET /system/health**: General healthcheck to check database connectivity.
+- **GET /system/health/detailed**: Detailed healthcheck consisting row counting and other detailed.
 
 ### Block Endpoints
 
-- **/blocks**: Block creation, input can be adjusted according to the block schema. After the block is created, it will return the block data itself. Block creation must store the ID of the user who created the block, which can be obtained from the JWT payload.
-- **/blocks**: The block retrieval process will, by default, filter for blocks with a depth level of 0. This endpoint must support pagination with a default of 10 rows (10/15/20 rows selectable). Pagination handling should prioritize performance—cursor-based pagination is recommended. The system only supports back-next pagination and does not require jumping to a specific page. Sorting should also be handled in ascending or descending order, based on column names such as `createdAt` or `updatedAt`.
+- **POST /blocks**: Block creation, input can be adjusted according to the block schema. After the block is created, it will return the block data itself. Block creation must store the ID of the user who created the block, which can be obtained from the JWT payload.
+- **GET /blocks**: The block retrieval process will, by default, filter for blocks with a depth level of 0. This endpoint must support pagination with a default of 10 rows (10/15/20 rows selectable). Pagination handling should prioritize performance—cursor-based pagination is recommended. The system only supports back-next pagination and does not require jumping to a specific page. Sorting should also be handled in ascending or descending order, based on column names such as `createdAt` or `updatedAt`.
+- **GET /blocks/:id**: The process of retrieving blocks uses UUIDs. A block will display a list of inner blocks one level below the referenced parent block. Pagination and sorting still apply to this endpoint.
+- **PUT /blocks/:id**: The block update process is based on the provided UUID. The `updatedAt` field is also set during this process.
+- **PUT /blocks/:id/move**: Block moving process. Send the UUID of the block to be moved in the endpoint, and the target block ID in the request body. The target block ID can be empty, indicating the block will be moved to the root level. If a target block ID is provided, the block will become a child of the target block, and its depth level must be adjusted accordingly. The `updatedAt` field is also set during this process.
+- **DELETE /blocks/:id**: Block deletion process is based on the provided UUID. When a block is deleted, all its child blocks will also be deleted. I want a confirmation step before deletion, where the frontend must send the block’s name to make the deletion process explicit (what do you think?).
+
+## Revision: Enumerate List
+
+I want to make a revision, but before that I’d like to ask about the deep level property in the block table. Please think harder - is this important and necessary? I want to make the block to be hierarchical tree data  with better performance. On the app, i want to list as breadcrumb as well for better navigation between blocks. In this current setup and endpoints definition, i want to implement a `path enumerate list` so the system can support breadcrumbs properly and perform better. But I’d like to ask—does the path enumerate list use IDs (numbers) as references, or something else? Please think harder about this. However, note that for retrieving a block and its children, I still want to use the UUID of the referenced block.

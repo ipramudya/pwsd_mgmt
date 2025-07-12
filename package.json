@@ -3,9 +3,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
-    "migrate": "drizzle-kit migrate --env-file .env",
     "lint:ultracite": "ultracite lint",
-    "format:ultracite": "ultracite format"
+    "format:ultracite": "ultracite format",
+    "db": "node scripts/db.js"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.0",

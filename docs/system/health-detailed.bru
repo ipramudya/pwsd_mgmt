@@ -24,5 +24,32 @@ tests {
     expect(body.data).to.have.property('status');
     expect(body.data).to.have.property('timestamp');
     expect(body.data).to.have.property('database');
+    expect(body.data.status).to.equal('healthy');
+  });
+  
+  test("should return database connection status", function() {
+    const body = res.getBody();
+    expect(body.data.database).to.have.property('status');
+    expect(body.data.database).to.have.property('responseTime');
+    expect(body.data.database.status).to.equal('connected');
+  });
+  
+  test("should return database metrics", function() {
+    const body = res.getBody();
+    expect(body.data.database).to.have.property('accountCount');
+    expect(body.data.database).to.have.property('blockCount');
+    expect(body.data.database).to.have.property('fieldCount');
+    expect(body.data.database.accountCount).to.be.a('number');
+    expect(body.data.database.blockCount).to.be.a('number');
+    expect(body.data.database.fieldCount).to.be.a('number');
+  });
+  
+  test("database response time should be reasonable", function() {
+    const body = res.getBody();
+    expect(body.data.database.responseTime).to.be.below(500);
+  });
+  
+  test("response time should be reasonable", function() {
+    expect(res.getResponseTime()).to.be.below(2000);
   });
 }

@@ -1,0 +1,50 @@
+meta {
+  name: Get Block Children
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/blocks/{{blockUuid}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return child blocks data", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('blocks');
+    expect(body.data).to.have.property('nextCursor');
+    expect(body.data).to.have.property('hasNext');
+    expect(body.data).to.have.property('total');
+    expect(body.data.blocks).to.be.an('array');
+  });
+  
+  test("should return blocks owned by current user", function() {
+    const body = res.getBody();
+    const userId = bru.getEnvVar("userId");
+    body.data.blocks.forEach(block => {
+      expect(block.createdById).to.equal(userId);
+    });
+  });
+  
+  test("should return only child blocks of parent", function() {
+    const body = res.getBody();
+    const parentBlockUuid = bru.getEnvVar("blockUuid");
+    body.data.blocks.forEach(block => {
+      expect(block.parentId).to.equal(parentBlockUuid);
+    });
+  });
+}

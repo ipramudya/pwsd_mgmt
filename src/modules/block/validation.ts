@@ -23,7 +23,6 @@ const createBlock = z.object({
     .trim()
     .optional(),
   parentId: z.string().uuid('Parent ID must be a valid UUID').optional(),
-  isFinal: z.boolean().optional().default(false),
 });
 
 const getBlocks = z.object({
@@ -44,17 +43,38 @@ const getBlocks = z.object({
     .enum(['createdAt', 'updatedAt', 'name'])
     .optional()
     .default('createdAt'),
-  deepLevel: z
+  parentId: z.string().uuid('Parent ID must be a valid UUID').optional(),
+});
+
+const updateBlock = z.object({
+  name: z
     .string()
-    .optional()
-    .default('0')
-    .transform((val) => {
-      const num = Number.parseInt(val, 10);
-      if (Number.isNaN(num) || num < 0) {
-        throw new Error('Deep level must be a non-negative number');
-      }
-      return num;
-    }),
+    .min(BLOCK_NAME_MIN_LENGTH, 'Block name is required')
+    .max(
+      BLOCK_NAME_MAX_LENGTH,
+      `Block name must not exceed ${BLOCK_NAME_MAX_LENGTH} characters`
+    )
+    .trim()
+    .optional(),
+  description: z
+    .string()
+    .max(
+      DESCRIPTION_MAX_LENGTH,
+      `Description must not exceed ${DESCRIPTION_MAX_LENGTH} characters`
+    )
+    .trim()
+    .optional(),
+});
+
+const moveBlock = z.object({
+  targetParentId: z
+    .string()
+    .uuid('Target parent ID must be a valid UUID')
+    .optional(),
+});
+
+const deleteBlock = z.object({
+  confirmationName: z.string().min(1, 'Confirmation name is required'),
 });
 
 export const blockValidations = {
@@ -67,5 +87,16 @@ export const blockValidations = {
     'query',
     getBlocks,
     'Block retrieval validation failed'
+  ),
+  updateBlock: zValidator(
+    'json',
+    updateBlock,
+    'Block update validation failed'
+  ),
+  moveBlock: zValidator('json', moveBlock, 'Block move validation failed'),
+  deleteBlock: zValidator(
+    'json',
+    deleteBlock,
+    'Block deletion validation failed'
   ),
 };

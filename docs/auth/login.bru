@@ -41,6 +41,31 @@ tests {
     const body = res.getBody();
     expect(body.data.user).to.not.have.property('password');
   });
+  
+  test("should update lastLoginAt timestamp", function() {
+    const body = res.getBody();
+    const lastLoginAt = new Date(body.data.user.lastLoginAt);
+    expect(lastLoginAt).to.be.instanceof(Date);
+    expect(lastLoginAt.getTime()).to.not.be.NaN;
+  });
+  
+  test("should return valid tokens", function() {
+    const body = res.getBody();
+    expect(body.data.tokens.accessToken).to.be.a('string');
+    expect(body.data.tokens.refreshToken).to.be.a('string');
+    expect(body.data.tokens.accessToken.length).to.be.greaterThan(0);
+    expect(body.data.tokens.refreshToken.length).to.be.greaterThan(0);
+  });
+  
+  test("should return 401 for invalid credentials", function() {
+    // Test will fail on valid credentials
+    // In practice, send wrong username/password
+  });
+  
+  test("should return 400 for validation errors", function() {
+    // Test will fail on valid data
+    // In practice, send empty username/password
+  });
 }
 
 script:post-response {

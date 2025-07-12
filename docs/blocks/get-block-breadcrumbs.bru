@@ -1,0 +1,48 @@
+meta {
+  name: Get Block Breadcrumbs
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/blocks/{{blockUuid}}/breadcrumbs
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return breadcrumbs data", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('breadcrumbs');
+    expect(body.data.breadcrumbs).to.be.an('array');
+  });
+  
+  test("breadcrumbs should contain valid block data", function() {
+    const body = res.getBody();
+    body.data.breadcrumbs.forEach(breadcrumb => {
+      expect(breadcrumb).to.have.property('uuid');
+      expect(breadcrumb).to.have.property('name');
+      expect(breadcrumb).to.have.property('deepLevel');
+    });
+  });
+  
+  test("breadcrumbs should be ordered by hierarchy", function() {
+    const body = res.getBody();
+    const breadcrumbs = body.data.breadcrumbs;
+    for (let i = 1; i < breadcrumbs.length; i++) {
+      expect(breadcrumbs[i].deepLevel).to.be.greaterThan(breadcrumbs[i - 1].deepLevel);
+    }
+  });
+}

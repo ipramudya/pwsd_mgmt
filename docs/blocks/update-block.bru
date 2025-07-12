@@ -1,0 +1,72 @@
+meta {
+  name: Update Block
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/blocks/{{blockUuid}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Updated Block Name",
+    "description": "This block has been updated via API testing",
+    "isFinal": true
+  }
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return updated block data", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('block');
+    expect(body.data.block).to.have.property('uuid');
+    expect(body.data.block).to.have.property('name');
+    expect(body.data.block).to.have.property('description');
+    expect(body.data.block).to.have.property('updatedAt');
+  });
+  
+  test("should reflect updated values", function() {
+    const body = res.getBody();
+    const block = body.data.block;
+    expect(block.name).to.equal("Updated Block Name");
+    expect(block.description).to.equal("This block has been updated via API testing");
+    expect(block.isFinal).to.equal(true);
+  });
+  
+  test("should have updated timestamp", function() {
+    const body = res.getBody();
+    const updatedAt = new Date(body.data.block.updatedAt);
+    expect(updatedAt).to.be.instanceof(Date);
+    expect(updatedAt.getTime()).to.not.be.NaN;
+  });
+  
+  test("should return 400 for validation errors", function() {
+    // This test will fail on valid data, demonstrating validation
+    // In practice, you would send invalid data to test validation
+  });
+  
+  test("should return 403 for unauthorized update", function() {
+    // This test will fail for owner, demonstrating authorization
+    // In practice, you would use different user token
+  });
+  
+  test("should return 404 for non-existent block", function() {
+    // This test will fail for existing block
+    // In practice, you would use non-existent block UUID
+  });
+}

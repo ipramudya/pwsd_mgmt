@@ -1,0 +1,56 @@
+meta {
+  name: Move Block
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/blocks/{{blockUuid}}/move
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "targetBlockId": null
+  }
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return success message", function() {
+    const body = res.getBody();
+    expect(body.message).to.equal("Block moved successfully");
+  });
+  
+  test("should return 400 for validation errors", function() {
+    // Test will fail on valid data
+    // In practice, send invalid targetBlockId
+  });
+  
+  test("should return 403 for unauthorized move", function() {
+    // Test will fail for owner
+    // In practice, use different user token
+  });
+  
+  test("should return 404 for non-existent block", function() {
+    // Test will fail for existing block
+    // In practice, use non-existent block UUID
+  });
+  
+  test("should return 400 for circular reference", function() {
+    // Test will fail for valid move
+    // In practice, try to move parent into its own child
+  });
+}

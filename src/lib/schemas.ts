@@ -31,8 +31,7 @@ export const blocks = sqliteTable(
     uuid: text().notNull().unique(),
     name: text().notNull(),
     description: text(),
-    deepLevel: integer({ mode: 'number' }).notNull().default(0),
-    isFinal: integer({ mode: 'boolean' }).notNull().default(false),
+    path: text().notNull(),
     createdAt: integer({ mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -40,12 +39,13 @@ export const blocks = sqliteTable(
       .notNull()
       .default(sql`(unixepoch())`),
     createdById: text().notNull(),
-    parentId: text(),
+    parentId: integer({ mode: 'number' }),
   },
   (t) => [
     index('blocks_uuid_idx').on(t.uuid),
     index('blocks_created_by_idx').on(t.createdById),
     index('blocks_parent_idx').on(t.parentId),
+    index('blocks_path_idx').on(t.path),
   ]
 );
 
@@ -133,7 +133,7 @@ export const blocksRelations = relations(blocks, ({ one, many }) => ({
   }),
   parent: one(blocks, {
     fields: [blocks.parentId],
-    references: [blocks.uuid],
+    references: [blocks.id],
   }),
   children: many(blocks),
   fields: many(fields),

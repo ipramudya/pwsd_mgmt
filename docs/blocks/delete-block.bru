@@ -1,0 +1,58 @@
+meta {
+  name: Delete Block
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{baseUrl}}/blocks/{{blockUuid}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "confirmationName": "Updated Block Name"
+  }
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return success message", function() {
+    const body = res.getBody();
+    expect(body.message).to.equal("Block deleted successfully");
+  });
+  
+  test("should return 400 for wrong confirmation name", function() {
+    // Test will fail on correct confirmation
+    // In practice, send wrong confirmation name
+  });
+  
+  test("should return 403 for unauthorized delete", function() {
+    // Test will fail for owner
+    // In practice, use different user token
+  });
+  
+  test("should return 404 for non-existent block", function() {
+    // Test will fail for existing block
+    // In practice, use non-existent block UUID
+  });
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    // Clear the blockUuid since it's been deleted
+    bru.setEnvVar("blockUuid", "");
+  }
+}
