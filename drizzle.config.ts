@@ -6,15 +6,13 @@ import { defineConfig } from 'drizzle-kit';
 export default defineConfig({
   out: 'src/lib/migrations',
   schema: './src/lib/schemas.ts',
-  dialect: 'sqlite',
-  driver: 'd1-http',
+  dialect: 'turso',
   dbCredentials: {
-    accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-    databaseId: process.env.CLOUDFLARE_DB_ID!,
-    token: process.env.CLOUDFLARE_TOKEN!,
+    url: process.env.DB_URL!,
+    authToken: process.env.DB_TOKEN!,
   },
   migrations: {
     prefix: 'timestamp',
-    table: 'orm-migrations',
+    table: 'drizzle_migrations',
   },
 });

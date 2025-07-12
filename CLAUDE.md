@@ -2,13 +2,13 @@
 
 ## Project Overview
 
-A password management API built with Hono framework and Cloudflare Workers, using D1 database for storage. The API manages hierarchical data structures using a path-based system for organizing blocks and fields efficiently.
+A password management API built with Hono framework and Cloudflare Workers, using Turso database for storage. The API manages hierarchical data structures using a path-based system for organizing blocks and fields efficiently.
 
 ## Tech Stack
 
 - **Framework**: Hono
 - **Runtime**: Cloudflare Workers
-- **Database**: Cloudflare D1 (SQLite)
+- **Database**: Turso (libSQL)
 - **ORM**: Drizzle ORM
 - **Validation**: Zod
 - **Linting**: Biome + Ultracite
@@ -17,7 +17,8 @@ A password management API built with Hono framework and Cloudflare Workers, usin
 ## Documentation and References
 
 - Hono: <https://hono.dev/llms-full.txt>
-- Cloudflare D1: <https://developers.cloudflare.com/d1/>
+- Turso: <https://docs.turso.tech/>
+- Drizzle with Turso: <https://orm.drizzle.team/docs/tutorials/drizzle-with-turso>
 - Cloudflare Workers: <https://developers.cloudflare.com/workers/>
 - Zod: <https://v3.zod.dev/>
 - Drizzle: <https://orm.drizzle.team/docs/overview>

@@ -1,11 +1,11 @@
-import type { D1Database } from '@cloudflare/workers-types';
 import type { Context } from 'hono';
 import type { Logger } from 'pino';
 
 type Bindings = {
   JWT_SECRET_ACCESS: string;
   JWT_SECRET_REFRESH: string;
-  DB: D1Database;
+  DB_URL: string;
+  DB_TOKEN: string;
 };
 
 type Variables = {

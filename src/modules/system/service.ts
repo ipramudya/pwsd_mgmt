@@ -22,7 +22,7 @@ export class SystemService {
     // Determine overall system status
     let status: SystemHealthInfo['status'] = 'healthy';
 
-    if (!databaseHealth.connected) {
+    if (databaseHealth.status === 'disconnected') {
       status = 'unhealthy';
     } else if (databaseHealth.responseTime > 1000) {
       // Consider degraded if database response time is over 1 second
@@ -41,7 +41,7 @@ export class SystemService {
     this.logger.info(
       {
         status: healthInfo.status,
-        databaseConnected: databaseHealth.connected,
+        databaseStatus: databaseHealth.status,
         databaseResponseTime: databaseHealth.responseTime,
       },
       'System health check completed'
@@ -50,31 +50,50 @@ export class SystemService {
     return healthInfo;
   }
 
-  async getDetailedHealthCheck(): Promise<
-    SystemHealthInfo & {
-      databaseStats: {
-        totalAccounts: number;
-        totalBlocks: number;
-        totalFields: number;
-      };
-    }
-  > {
+  async getDetailedHealthCheck(): Promise<SystemHealthInfo> {
     this.logger.info('Performing detailed system health check');
 
-    const [healthInfo, databaseStats] = await Promise.all([
-      this.getHealthCheck(),
+    const [databaseHealth, databaseStats] = await Promise.all([
+      this.repository.checkDatabaseHealth(),
       this.repository.getDatabaseStats(),
     ]);
 
-    const detailedHealthInfo = {
-      ...healthInfo,
-      databaseStats,
+    // Determine overall system status
+    let status: SystemHealthInfo['status'] = 'healthy';
+
+    if (databaseHealth.status === 'disconnected') {
+      status = 'unhealthy';
+    } else if (databaseHealth.responseTime > 1000) {
+      // Consider degraded if database response time is over 1 second
+      status = 'degraded';
+    }
+
+    // Combine database health with database stats
+    const enhancedDatabaseHealth = {
+      ...databaseHealth,
+      accountCount: databaseStats.totalAccounts,
+      blockCount: databaseStats.totalBlocks,
+      fieldCount: databaseStats.totalFields,
+    };
+
+    const detailedHealthInfo: SystemHealthInfo = {
+      status,
+      timestamp: new Date().toISOString(),
+      uptime: Date.now() - this.startTime,
+      database: enhancedDatabaseHealth,
+      version: '1.0.0', // This could be read from package.json or env
+      environment: 'production', // This could be read from env
     };
 
     this.logger.info(
       {
         status: detailedHealthInfo.status,
-        databaseStats: detailedHealthInfo.databaseStats,
+        databaseStatus: databaseHealth.status,
+        databaseStats: {
+          accountCount: databaseStats.totalAccounts,
+          blockCount: databaseStats.totalBlocks,
+          fieldCount: databaseStats.totalFields,
+        },
       },
       'Detailed system health check completed'
     );

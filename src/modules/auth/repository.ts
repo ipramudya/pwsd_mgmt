@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/d1';
+import { createDatabase, type Database } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import { accounts } from '../../lib/schemas';
@@ -7,11 +7,11 @@ import type { AppContext } from '../../types';
 import type { AccountRecord, CreateAccountInput } from './dto';
 
 export class AuthRepository {
-  private db: ReturnType<typeof drizzle>;
+  private db: Database;
   private logger: ReturnType<typeof getLogger>;
 
   constructor(c: AppContext) {
-    this.db = drizzle(c.env.DB);
+    this.db = createDatabase(c);
     this.logger = getLogger(c, 'auth-repository');
   }
 

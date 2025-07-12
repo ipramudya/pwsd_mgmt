@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, like, lt, sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/d1';
+import { createDatabase, type Database } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import { blocks } from '../../lib/schemas';
@@ -14,11 +14,11 @@ import type {
 } from './dto';
 
 export class BlockRepository {
-  private db: ReturnType<typeof drizzle>;
+  private db: Database;
   private logger: ReturnType<typeof getLogger>;
 
   constructor(c: AppContext) {
-    this.db = drizzle(c.env.DB);
+    this.db = createDatabase(c);
     this.logger = getLogger(c, 'block-repository');
   }
 

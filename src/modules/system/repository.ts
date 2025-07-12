@@ -1,14 +1,17 @@
 import { sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/d1';
+import { createDatabase, type Database } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import { accounts, blocks, fields } from '../../lib/schemas';
 import type { AppContext } from '../../types';
 
 export interface DatabaseHealthInfo {
-  connected: boolean;
+  status: 'connected' | 'disconnected';
   responseTime: number;
   error?: string;
+  accountCount?: number;
+  blockCount?: number;
+  fieldCount?: number;
 }
 
 export interface SystemHealthInfo {
@@ -21,22 +24,22 @@ export interface SystemHealthInfo {
 }
 
 export class SystemRepository {
-  private db: ReturnType<typeof drizzle>;
+  private db: Database;
   private logger: ReturnType<typeof getLogger>;
 
   constructor(c: AppContext) {
-    this.db = drizzle(c.env.DB);
+    this.db = createDatabase(c);
     this.logger = getLogger(c, 'system-repository');
   }
 
-  checkDatabaseHealth(): DatabaseHealthInfo {
+  async checkDatabaseHealth(): Promise<DatabaseHealthInfo> {
     const startTime = performance.now();
 
     try {
       this.logger.info('Checking database connectivity');
 
       // Perform a simple query to test database connectivity
-      this.db.select({ test: sql`1` });
+      await this.db.select({ test: sql`1` });
 
       const responseTime = performance.now() - startTime;
 
@@ -46,7 +49,7 @@ export class SystemRepository {
       );
 
       return {
-        connected: true,
+        status: 'connected',
         responseTime: Math.round(responseTime),
       };
     } catch (error) {
@@ -58,7 +61,7 @@ export class SystemRepository {
       );
 
       return {
-        connected: false,
+        status: 'disconnected',
         responseTime: Math.round(responseTime),
         error:
           error instanceof Error ? error.message : 'Unknown database error',
