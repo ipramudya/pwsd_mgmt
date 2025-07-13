@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NotFoundError, ValidationError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import type { AppContext } from '../../types';
+import { FieldService } from '../field/service';
 import { validateBlockTypeForChildren } from './block-type';
 import type {
   BlockDto,
@@ -18,10 +19,12 @@ import { BlockRepository } from './repository';
 
 export class BlockService {
   private repository: BlockRepository;
+  private fieldService: FieldService;
   private logger: ReturnType<typeof getLogger>;
 
   constructor(c: AppContext) {
     this.repository = new BlockRepository(c);
+    this.fieldService = new FieldService(c);
     this.logger = getLogger(c, 'block-service');
   }
 
@@ -157,8 +160,35 @@ export class BlockService {
 
     const result = await this.repository.getBlocks(query);
 
-    const transformedBlocks = result.blocks.map((block) =>
-      this.toBlockDto(block)
+    // Transform blocks and include fields for terminal blocks
+    const transformedBlocks = await Promise.all(
+      result.blocks.map(async (block) => {
+        const blockDto = this.toBlockDto(block);
+
+        // If it's a terminal block, include its fields
+        if (block.blockType === 'terminal') {
+          try {
+            const fields =
+              await this.fieldService.getFieldsWithDecryptedPasswords(
+                block.uuid,
+                createdById
+              );
+            blockDto.fields = fields;
+          } catch (error) {
+            // If there's an error getting fields, log it but don't fail the whole request
+            this.logger.warn(
+              {
+                blockId: block.uuid,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              },
+              'Failed to retrieve fields for terminal block'
+            );
+            blockDto.fields = [];
+          }
+        }
+
+        return blockDto;
+      })
     );
 
     this.logger.info(
@@ -168,7 +198,7 @@ export class BlockService {
         total: result.total,
         hasNext: !!result.nextCursor,
       },
-      'Blocks retrieved successfully'
+      'Blocks with fields retrieved successfully'
     );
 
     return {

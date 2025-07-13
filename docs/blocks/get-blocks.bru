@@ -1,5 +1,5 @@
 meta {
-  name: Get Blocks (Default - Level 0)
+  name: Get Root Blocks with Fields
   type: http
   seq: 3
 }
@@ -32,10 +32,26 @@ tests {
     expect(body.data.blocks).to.be.an('array');
   });
   
-  test("should return only level 0 blocks by default", function() {
+  test("should return both container and terminal blocks", function() {
     const body = res.getBody();
-    body.data.blocks.forEach(block => {
-      expect(block.deepLevel).to.equal(0);
+    const blockTypes = body.data.blocks.map(block => block.blockType);
+    expect(blockTypes).to.include.members(['container', 'terminal']);
+  });
+  
+  test("terminal blocks should include fields", function() {
+    const body = res.getBody();
+    const terminalBlocks = body.data.blocks.filter(block => block.blockType === 'terminal');
+    terminalBlocks.forEach(block => {
+      expect(block).to.have.property('fields');
+      expect(block.fields).to.be.an('array');
+    });
+  });
+  
+  test("container blocks should not have fields property", function() {
+    const body = res.getBody();
+    const containerBlocks = body.data.blocks.filter(block => block.blockType === 'container');
+    containerBlocks.forEach(block => {
+      expect(block.fields).to.be.undefined;
     });
   });
   

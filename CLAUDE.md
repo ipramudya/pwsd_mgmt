@@ -151,22 +151,20 @@ Complete API documentation is available using Bruno in the `/docs` directory, in
 
 - **POST /**: Creates fields in batch. Accepts an array of fields with different types (text, password, todo) and either attaches them to an existing terminal block (via blockId) or creates a new terminal block (via blockName). Each field has a name, type, and type-specific data. When creating a new block, supports optional parentId for hierarchical placement and description. Validates that target blocks are terminal type and verifies ownership. Returns created fields with their data and optionally the created block. Password fields are automatically encrypted using AES-256-GCM before storage.
 
-- **GET /block/:blockId**: Retrieves all fields for a specific block with decrypted password data. Verifies block ownership and returns fields with their type-specific data. Password fields are automatically decrypted for use in other applications while maintaining security.
-
-- **GET /:fieldId**: Retrieves a single field by its UUID with decrypted password data if applicable. Verifies field ownership and returns the field with its data. Password fields are automatically decrypted for use.
-
 ### Block Endpoints (Prefix: `/api/v1/blocks`)
 
 - **POST /**: Creates a new block. Accepts name, description, blockType ('container' or 'terminal'), and optional parentId. Validates that parent blocks are container type before allowing children. Automatically generates path based on parent hierarchy. Records the creator ID from JWT token.
 
-- **GET /**: Retrieves blocks with advanced filtering and pagination:
+- **GET /**: Retrieves blocks at root level with advanced filtering and pagination:
   - Supports cursor-based pagination (default limit: 10, max: 100)
   - Sortable by: name, createdAt, updatedAt
   - Sort order: asc or desc
-  - Optional parentId filter to get children of specific block
+  - Returns both container and terminal type blocks
+  - Terminal blocks include all their fields with decrypted password data
+  - Container blocks show structure only
   - Returns total count, pagination info, and next cursor
 
-- **GET /:id**: Retrieves child blocks of specified parent block (by UUID). Uses same pagination and sorting as above but filtered to direct children only.
+- **GET /:id**: Retrieves child blocks of specified parent block (by UUID). Uses same pagination and sorting as root level but filtered to direct children only. Returns both container and terminal blocks, with terminal blocks including all their fields with decrypted password data.
 
 - **GET /:id/breadcrumbs**: Generates breadcrumb navigation for a specific block. Returns ordered array of parent blocks from root to current block, enabling navigation UI.
 
@@ -217,6 +215,7 @@ Each endpoint includes example requests, expected responses, and automated tests
 ## Recent Changes
 
 ### Database Migration (Latest)
+
 - Migrated from Cloudflare D1 SQLite to Turso libSQL for enhanced performance and features
 - Updated database connection configuration in `wrangler.jsonc`
 - Modified database client imports and initialization across all modules
@@ -224,6 +223,7 @@ Each endpoint includes example requests, expected responses, and automated tests
 - Added AES-256-GCM encryption for password fields with automatic encryption/decryption
 
 ### Field Module Implementation
+
 - **Complete field management system** with support for multiple field types
 - **Batch field creation** with automatic block creation when needed
 - **Type-specific data storage** in separate tables for text, password, and todo fields
@@ -232,6 +232,7 @@ Each endpoint includes example requests, expected responses, and automated tests
 - **Field retrieval APIs** with automatic password decryption for usability
 
 ### Enhanced Block Module
+
 - Updated block routes to work with new libSQL database connection
 - Maintained all existing hierarchical operations and path-based queries
 - Preserved pagination, filtering, and sorting capabilities

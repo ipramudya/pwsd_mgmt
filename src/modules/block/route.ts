@@ -36,7 +36,7 @@ blockRoute.get('/', blockValidations.getBlocks, async (c) => {
     {
       success: true,
       data: result,
-      message: 'Blocks retrieved successfully',
+      message: 'Blocks and fields retrieved successfully',
     },
     200
   );
@@ -53,7 +53,7 @@ blockRoute.get('/:id', async (c) => {
     {
       success: true,
       data: result,
-      message: 'Child blocks retrieved successfully',
+      message: 'Child blocks and fields retrieved successfully',
     },
     200
   );

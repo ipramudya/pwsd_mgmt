@@ -1,5 +1,5 @@
 meta {
-  name: Get Fields by Block
+  name: Get Fields by Block (DEPRECATED - Use GET /blocks instead)
   type: http
   seq: 2
 }
@@ -15,27 +15,7 @@ auth:bearer {
 }
 
 tests {
-  test("should return 200 status", function() {
-    expect(res.getStatus()).to.equal(200);
-  });
-  
-  test("should return success response", function() {
-    expect(res.getBody().success).to.equal(true);
-  });
-  
-  test("should return fields array", function() {
-    const body = res.getBody();
-    expect(body.data).to.have.property('fields');
-    expect(body.data.fields).to.be.an('array');
-  });
-  
-  test("should return fields with data", function() {
-    const body = res.getBody();
-    const fields = body.data.fields;
-    expect(fields.length).to.be.greaterThan(0);
-    expect(fields[0]).to.have.property('uuid');
-    expect(fields[0]).to.have.property('name');
-    expect(fields[0]).to.have.property('type');
-    expect(fields[0]).to.have.property('data');
+  test("should return 404 status (endpoint removed)", function() {
+    expect(res.getStatus()).to.equal(404);
   });
 }

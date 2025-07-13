@@ -31,6 +31,8 @@ export type MoveBlockRequestDto = {
   targetParentId?: string;
 };
 
+import type { FieldWithDataDto } from '../field/dto';
+
 export type BlockDto = {
   id: number;
   uuid: string;
@@ -42,6 +44,7 @@ export type BlockDto = {
   updatedAt: Date;
   createdById: string;
   parentId: number | null;
+  fields?: FieldWithDataDto[]; // Only populated for terminal blocks
 };
 
 export type CreateBlockResponseDto = {

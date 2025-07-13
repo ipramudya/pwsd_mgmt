@@ -68,6 +68,12 @@ export type FieldWithDataDto = FieldDto & {
   data: TextFieldDataDto | PasswordFieldDataDto | TodoFieldDataDto;
 };
 
+export type FieldWithRelatedDataDto = FieldRecord & {
+  textField?: TextFieldDataDto | null;
+  passwordField?: PasswordFieldDataDto | null;
+  todoField?: TodoFieldDataDto | null;
+};
+
 export type CreateFieldsResponseDto = {
   fields: FieldWithDataDto[];
   block?: {

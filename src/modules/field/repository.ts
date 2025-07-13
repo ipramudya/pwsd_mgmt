@@ -269,4 +269,32 @@ export class FieldRepository {
       throw new DatabaseError('Failed to find field');
     }
   }
+
+  async findFieldsWithDataByBlockId(blockId: string) {
+    try {
+      this.logger.info(
+        { blockId },
+        'Finding fields with data by block ID using optimized query'
+      );
+
+      const result = await this.db.query.fields.findMany({
+        where: eq(fields.blockId, blockId),
+        with: {
+          textField: true,
+          passwordField: true,
+          todoField: true,
+        },
+      });
+
+      this.logger.info(
+        { blockId, fieldCount: result.length },
+        'Fields with data found successfully using optimized query'
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(error, 'Failed to find fields with data by block ID');
+      throw new DatabaseError('Failed to retrieve fields with data');
+    }
+  }
 }

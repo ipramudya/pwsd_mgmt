@@ -8,6 +8,7 @@ import type {
   CreateFieldsResponseDto,
   FieldRecord,
   FieldWithDataDto,
+  FieldWithRelatedDataDto,
   PasswordFieldDataDto,
   TextFieldDataDto,
   TodoFieldDataDto,
@@ -244,13 +245,80 @@ export class FieldService {
     };
   }
 
+  private processFieldData(
+    field: FieldWithRelatedDataDto
+  ): TextFieldDataDto | PasswordFieldDataDto | TodoFieldDataDto {
+    switch (field.type) {
+      case 'text': {
+        if (!field.textField) {
+          throw new ValidationError(
+            `Text field data not found for field ${field.uuid}`
+          );
+        }
+        return field.textField;
+      }
+      case 'password': {
+        if (!field.passwordField) {
+          throw new ValidationError(
+            `Password field data not found for field ${field.uuid}`
+          );
+        }
+        try {
+          const decryptedPassword = decryptPasswordFromStorage(
+            field.passwordField.password
+          );
+          return {
+            ...field.passwordField,
+            password: decryptedPassword,
+          };
+        } catch (error) {
+          this.logger.error(
+            {
+              fieldId: field.uuid,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            },
+            'Failed to decrypt password for field'
+          );
+          throw new ValidationError('Failed to decrypt password field');
+        }
+      }
+      case 'todo': {
+        if (!field.todoField) {
+          throw new ValidationError(
+            `Todo field data not found for field ${field.uuid}`
+          );
+        }
+        return field.todoField;
+      }
+      default:
+        throw new ValidationError(`Unsupported field type: ${field.type}`);
+    }
+  }
+
+  private mapFieldToDto(
+    field: FieldWithRelatedDataDto,
+    fieldData: TextFieldDataDto | PasswordFieldDataDto | TodoFieldDataDto
+  ): FieldWithDataDto {
+    return {
+      id: field.id,
+      uuid: field.uuid,
+      name: field.name,
+      type: field.type,
+      createdAt: field.createdAt,
+      updatedAt: field.updatedAt,
+      createdById: field.createdById,
+      blockId: field.blockId,
+      data: fieldData,
+    };
+  }
+
   async getFieldsWithDecryptedPasswords(
     blockId: string,
     userId: string
   ): Promise<FieldWithDataDto[]> {
     this.logger.info(
       { blockId, userId },
-      'Retrieving fields with decrypted passwords'
+      'Retrieving fields with decrypted passwords using optimized query'
     );
 
     // Verify block exists and user has access
@@ -265,51 +333,20 @@ export class FieldService {
       );
     }
 
-    // Get fields and their data individually to ensure proper decryption
-    const fieldRecords = await this.repository.findFieldsByBlockId(blockId);
+    // Use optimized query to get all fields with their data in a single database operation
+    const fieldsWithRelatedData =
+      await this.repository.findFieldsWithDataByBlockId(blockId);
 
-    const fieldsWithDataPromises = fieldRecords.map(async (field) => {
-      const fieldData = await this.getFieldDataByType(field);
-      return {
-        ...field,
-        data: fieldData,
-      };
-    });
-
-    const fieldsWithData = await Promise.all(fieldsWithDataPromises);
-
-    // Decrypt passwords
-    const fieldsWithDecryptedPasswords = fieldsWithData.map((field) => {
-      if (field.type === 'password') {
-        const passwordData = field.data as PasswordFieldDataDto;
-        try {
-          const decryptedPassword = decryptPasswordFromStorage(
-            passwordData.password
-          );
-          return {
-            ...field,
-            data: {
-              ...passwordData,
-              password: decryptedPassword,
-            },
-          };
-        } catch (error) {
-          this.logger.error(
-            {
-              fieldId: field.uuid,
-              error: error instanceof Error ? error.message : 'Unknown error',
-            },
-            'Failed to decrypt password for field'
-          );
-          throw new ValidationError('Failed to decrypt password field');
-        }
-      }
-      return field;
-    });
+    // Process and decrypt passwords
+    const fieldsWithDecryptedPasswords: FieldWithDataDto[] =
+      fieldsWithRelatedData.map((field) => {
+        const fieldData = this.processFieldData(field);
+        return this.mapFieldToDto(field, fieldData);
+      });
 
     this.logger.info(
       { blockId, fieldCount: fieldsWithDecryptedPasswords.length },
-      'Fields with decrypted passwords retrieved successfully'
+      'Fields with decrypted passwords retrieved successfully using optimized query'
     );
 
     return fieldsWithDecryptedPasswords;
