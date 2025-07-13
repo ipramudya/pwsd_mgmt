@@ -1,0 +1,51 @@
+meta {
+  name: Delete Fields
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/fields/block/{{testBlockUuid}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "fieldIds": ["{{testFieldUuid}}"]
+  }
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return deletion statistics", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('deletedCount');
+    expect(body.data).to.have.property('deletedFieldIds');
+    expect(body.data.deletedCount).to.be.a('number');
+    expect(body.data.deletedFieldIds).to.be.an('array');
+  });
+  
+  test("should delete correct number of fields", function() {
+    const body = res.getBody();
+    expect(body.data.deletedCount).to.equal(body.data.deletedFieldIds.length);
+    expect(body.data.deletedCount).to.be.greaterThan(0);
+  });
+  
+  test("should return deleted field IDs", function() {
+    const body = res.getBody();
+    const testFieldUuid = bru.getEnvVar("testFieldUuid");
+    expect(body.data.deletedFieldIds).to.include(testFieldUuid);
+  });
+}

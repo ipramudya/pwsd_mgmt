@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { createDatabase, type Database } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
@@ -295,6 +295,143 @@ export class FieldRepository {
     } catch (error) {
       this.logger.error(error, 'Failed to find fields with data by block ID');
       throw new DatabaseError('Failed to retrieve fields with data');
+    }
+  }
+
+  async findFieldsByIdsAndBlockId(
+    fieldIds: string[],
+    blockId: string
+  ): Promise<FieldRecord[]> {
+    try {
+      this.logger.info(
+        { fieldIds, blockId },
+        'Finding fields by IDs and block ID'
+      );
+
+      const result = await this.db
+        .select()
+        .from(fields)
+        .where(
+          and(inArray(fields.uuid, fieldIds), eq(fields.blockId, blockId))
+        );
+
+      this.logger.info(
+        { foundCount: result.length, expectedCount: fieldIds.length },
+        'Fields found by IDs and block ID'
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(error, 'Failed to find fields by IDs and block ID');
+      throw new DatabaseError('Failed to retrieve fields');
+    }
+  }
+
+  async updateTextFieldData(fieldId: string, text: string): Promise<void> {
+    try {
+      this.logger.info({ fieldId }, 'Updating text field data');
+
+      await this.db
+        .update(textFields)
+        .set({ text, updatedAt: new Date() })
+        .where(eq(textFields.fieldId, fieldId));
+
+      this.logger.info({ fieldId }, 'Text field data updated successfully');
+    } catch (error) {
+      this.logger.error(error, 'Failed to update text field data');
+      throw new DatabaseError('Failed to update text field data');
+    }
+  }
+
+  async updatePasswordFieldData(
+    fieldId: string,
+    encryptedPassword: string
+  ): Promise<void> {
+    try {
+      this.logger.info({ fieldId }, 'Updating password field data');
+
+      await this.db
+        .update(passwordFields)
+        .set({ password: encryptedPassword, updatedAt: new Date() })
+        .where(eq(passwordFields.fieldId, fieldId));
+
+      this.logger.info({ fieldId }, 'Password field data updated successfully');
+    } catch (error) {
+      this.logger.error(error, 'Failed to update password field data');
+      throw new DatabaseError('Failed to update password field data');
+    }
+  }
+
+  async updateTodoFieldData(
+    fieldId: string,
+    isChecked: boolean
+  ): Promise<void> {
+    try {
+      this.logger.info({ fieldId, isChecked }, 'Updating todo field data');
+
+      await this.db
+        .update(todoFields)
+        .set({ isChecked, updatedAt: new Date() })
+        .where(eq(todoFields.fieldId, fieldId));
+
+      this.logger.info({ fieldId }, 'Todo field data updated successfully');
+    } catch (error) {
+      this.logger.error(error, 'Failed to update todo field data');
+      throw new DatabaseError('Failed to update todo field data');
+    }
+  }
+
+  async deleteTextFieldData(fieldId: string): Promise<void> {
+    try {
+      this.logger.info({ fieldId }, 'Deleting text field data');
+
+      await this.db.delete(textFields).where(eq(textFields.fieldId, fieldId));
+
+      this.logger.info({ fieldId }, 'Text field data deleted successfully');
+    } catch (error) {
+      this.logger.error(error, 'Failed to delete text field data');
+      throw new DatabaseError('Failed to delete text field data');
+    }
+  }
+
+  async deletePasswordFieldData(fieldId: string): Promise<void> {
+    try {
+      this.logger.info({ fieldId }, 'Deleting password field data');
+
+      await this.db
+        .delete(passwordFields)
+        .where(eq(passwordFields.fieldId, fieldId));
+
+      this.logger.info({ fieldId }, 'Password field data deleted successfully');
+    } catch (error) {
+      this.logger.error(error, 'Failed to delete password field data');
+      throw new DatabaseError('Failed to delete password field data');
+    }
+  }
+
+  async deleteTodoFieldData(fieldId: string): Promise<void> {
+    try {
+      this.logger.info({ fieldId }, 'Deleting todo field data');
+
+      await this.db.delete(todoFields).where(eq(todoFields.fieldId, fieldId));
+
+      this.logger.info({ fieldId }, 'Todo field data deleted successfully');
+    } catch (error) {
+      this.logger.error(error, 'Failed to delete todo field data');
+      throw new DatabaseError('Failed to delete todo field data');
+    }
+  }
+
+  async deleteField(fieldId: string): Promise<void> {
+    try {
+      this.logger.info({ fieldId }, 'Deleting field record');
+
+      await this.db.delete(fields).where(eq(fields.uuid, fieldId));
+
+      this.logger.info({ fieldId }, 'Field record deleted successfully');
+    } catch (error) {
+      this.logger.error(error, 'Failed to delete field record');
+      throw new DatabaseError('Failed to delete field record');
     }
   }
 }

@@ -1,0 +1,61 @@
+meta {
+  name: Update Fields
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/fields/block/{{testBlockUuid}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "fields": [
+      {
+        "fieldId": "{{testFieldUuid}}",
+        "data": {
+          "text": "updated.email@example.com"
+        }
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return updated fields data", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('updatedFields');
+    expect(body.data.updatedFields).to.be.an('array');
+    expect(body.data.updatedFields.length).to.be.greaterThan(0);
+  });
+  
+  test("should return updated field with new data", function() {
+    const body = res.getBody();
+    const updatedField = body.data.updatedFields[0];
+    expect(updatedField).to.have.property('uuid');
+    expect(updatedField).to.have.property('data');
+    expect(updatedField.data.text).to.equal("updated.email@example.com");
+  });
+  
+  test("should maintain field ownership", function() {
+    const body = res.getBody();
+    const userId = bru.getEnvVar("userId");
+    body.data.updatedFields.forEach(field => {
+      expect(field.createdById).to.equal(userId);
+    });
+  });
+}

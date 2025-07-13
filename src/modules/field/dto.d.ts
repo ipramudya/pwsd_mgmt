@@ -147,3 +147,42 @@ export type TodoFieldRecord = {
   updatedAt: Date;
   fieldId: string;
 };
+
+// Update field types
+export type UpdateTextFieldDataDto = {
+  text: string;
+};
+
+export type UpdatePasswordFieldDataDto = {
+  password: string;
+};
+
+export type UpdateTodoFieldDataDto = {
+  isChecked: boolean;
+};
+
+export type UpdateFieldRequestDto = {
+  fieldId: string;
+  data:
+    | UpdateTextFieldDataDto
+    | UpdatePasswordFieldDataDto
+    | UpdateTodoFieldDataDto;
+};
+
+export type UpdateFieldsRequestDto = {
+  fields: UpdateFieldRequestDto[];
+};
+
+export type UpdateFieldsResponseDto = {
+  updatedFields: FieldWithDataDto[];
+};
+
+// Delete field types
+export type DeleteFieldsRequestDto = {
+  fieldIds: string[];
+};
+
+export type DeleteFieldsResponseDto = {
+  deletedCount: number;
+  deletedFieldIds: string[];
+};

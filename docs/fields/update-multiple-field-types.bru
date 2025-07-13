@@ -1,0 +1,82 @@
+meta {
+  name: Update Multiple Field Types
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/fields/block/{{testBlockUuid}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "fields": [
+      {
+        "fieldId": "text-field-uuid-here",
+        "data": {
+          "text": "Updated text content"
+        }
+      },
+      {
+        "fieldId": "password-field-uuid-here",
+        "data": {
+          "password": "NewSecurePassword456!"
+        }
+      },
+      {
+        "fieldId": "todo-field-uuid-here",
+        "data": {
+          "isChecked": false
+        }
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should update multiple field types", function() {
+    const body = res.getBody();
+    expect(body.data.updatedFields).to.have.lengthOf(3);
+    
+    const fieldTypes = body.data.updatedFields.map(field => field.type);
+    expect(fieldTypes).to.include.members(['text', 'password', 'todo']);
+  });
+  
+  test("should update text field data", function() {
+    const body = res.getBody();
+    const textField = body.data.updatedFields.find(field => field.type === 'text');
+    if (textField) {
+      expect(textField.data.text).to.equal("Updated text content");
+    }
+  });
+  
+  test("should update password field data", function() {
+    const body = res.getBody();
+    const passwordField = body.data.updatedFields.find(field => field.type === 'password');
+    if (passwordField) {
+      expect(passwordField.data.password).to.equal("NewSecurePassword456!");
+    }
+  });
+  
+  test("should update todo field data", function() {
+    const body = res.getBody();
+    const todoField = body.data.updatedFields.find(field => field.type === 'todo');
+    if (todoField) {
+      expect(todoField.data.isChecked).to.equal(false);
+    }
+  });
+}

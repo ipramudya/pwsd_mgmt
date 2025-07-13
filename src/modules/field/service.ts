@@ -6,12 +6,16 @@ import { BlockService } from '../block/service';
 import type {
   CreateFieldsRequestDto,
   CreateFieldsResponseDto,
+  DeleteFieldsRequestDto,
+  DeleteFieldsResponseDto,
   FieldRecord,
   FieldWithDataDto,
   FieldWithRelatedDataDto,
   PasswordFieldDataDto,
   TextFieldDataDto,
   TodoFieldDataDto,
+  UpdateFieldsRequestDto,
+  UpdateFieldsResponseDto,
 } from './dto';
 import {
   decryptPasswordFromStorage,
@@ -423,5 +427,218 @@ export class FieldService {
     );
 
     return fieldWithData;
+  }
+
+  async updateFields(
+    blockId: string,
+    input: UpdateFieldsRequestDto,
+    userId: string
+  ): Promise<UpdateFieldsResponseDto> {
+    this.logger.info(
+      {
+        blockId,
+        fieldCount: input.fields.length,
+        userId,
+      },
+      'Attempting to update fields'
+    );
+
+    // Verify block exists and user has access
+    const block = await this.repository.findBlockByUuid(blockId);
+    if (!block) {
+      throw new NotFoundError('Block not found');
+    }
+
+    if (block.createdById !== userId) {
+      throw new ValidationError(
+        'You can only update fields in blocks you created'
+      );
+    }
+
+    if (block.blockType !== 'terminal') {
+      throw new ValidationError('Can only update fields in terminal blocks');
+    }
+
+    // Extract field IDs and verify they belong to the block and user
+    const fieldIds = input.fields.map((f) => f.fieldId);
+    const fieldsToUpdate = await this.repository.findFieldsByIdsAndBlockId(
+      fieldIds,
+      blockId
+    );
+
+    if (fieldsToUpdate.length !== fieldIds.length) {
+      throw new NotFoundError(
+        'One or more fields not found in the specified block'
+      );
+    }
+
+    // Verify all fields belong to the user
+    const invalidFields = fieldsToUpdate.filter(
+      (field) => field.createdById !== userId
+    );
+    if (invalidFields.length > 0) {
+      throw new ValidationError('You can only update fields you created');
+    }
+
+    // Perform batch updates with transaction-like behavior
+    const updatePromises = input.fields.map(async (fieldUpdate) => {
+      const field = fieldsToUpdate.find((f) => f.uuid === fieldUpdate.fieldId);
+      if (!field) {
+        throw new NotFoundError(`Field ${fieldUpdate.fieldId} not found`);
+      }
+
+      this.logger.info(
+        {
+          fieldId: field.uuid,
+          fieldType: field.type,
+        },
+        'Updating field data'
+      );
+
+      // Update the field data based on type
+      switch (field.type) {
+        case 'text': {
+          const data = fieldUpdate.data as { text: string };
+          await this.repository.updateTextFieldData(field.uuid, data.text);
+          break;
+        }
+        case 'password': {
+          const data = fieldUpdate.data as { password: string };
+          const encryptedPassword = encryptPasswordForStorage(data.password);
+          await this.repository.updatePasswordFieldData(
+            field.uuid,
+            encryptedPassword
+          );
+          break;
+        }
+        case 'todo': {
+          const data = fieldUpdate.data as { isChecked: boolean };
+          await this.repository.updateTodoFieldData(field.uuid, data.isChecked);
+          break;
+        }
+        default:
+          throw new ValidationError(`Unsupported field type: ${field.type}`);
+      }
+
+      // Return the updated field with its data
+      return this.getFieldWithDecryptedPassword(field.uuid, userId);
+    });
+
+    const updatedFields = await Promise.all(updatePromises);
+    const validUpdatedFields = updatedFields.filter(
+      (field): field is FieldWithDataDto => field !== null
+    );
+
+    this.logger.info(
+      {
+        blockId,
+        updatedFieldCount: validUpdatedFields.length,
+      },
+      'Fields updated successfully'
+    );
+
+    return {
+      updatedFields: validUpdatedFields,
+    };
+  }
+
+  async deleteFields(
+    blockId: string,
+    input: DeleteFieldsRequestDto,
+    userId: string
+  ): Promise<DeleteFieldsResponseDto> {
+    this.logger.info(
+      {
+        blockId,
+        fieldIds: input.fieldIds,
+        userId,
+      },
+      'Attempting to delete fields'
+    );
+
+    // Verify block exists and user has access
+    const block = await this.repository.findBlockByUuid(blockId);
+    if (!block) {
+      throw new NotFoundError('Block not found');
+    }
+
+    if (block.createdById !== userId) {
+      throw new ValidationError(
+        'You can only delete fields from blocks you created'
+      );
+    }
+
+    if (block.blockType !== 'terminal') {
+      throw new ValidationError('Can only delete fields from terminal blocks');
+    }
+
+    // Verify all fields exist and belong to the block and user
+    const fieldsToDelete = await this.repository.findFieldsByIdsAndBlockId(
+      input.fieldIds,
+      blockId
+    );
+
+    if (fieldsToDelete.length !== input.fieldIds.length) {
+      throw new NotFoundError(
+        'One or more fields not found in the specified block'
+      );
+    }
+
+    // Verify all fields belong to the user
+    const invalidFields = fieldsToDelete.filter(
+      (field) => field.createdById !== userId
+    );
+    if (invalidFields.length > 0) {
+      throw new ValidationError('You can only delete fields you created');
+    }
+
+    // Perform cascade deletion
+    const deletionPromises = fieldsToDelete.map(async (field) => {
+      this.logger.info(
+        {
+          fieldId: field.uuid,
+          fieldType: field.type,
+        },
+        'Deleting field and its data'
+      );
+
+      // Delete field-specific data first, then the field record
+      switch (field.type) {
+        case 'text':
+          await this.repository.deleteTextFieldData(field.uuid);
+          break;
+        case 'password':
+          await this.repository.deletePasswordFieldData(field.uuid);
+          break;
+        case 'todo':
+          await this.repository.deleteTodoFieldData(field.uuid);
+          break;
+        default:
+          this.logger.warn(
+            { fieldType: field.type },
+            'Unknown field type during deletion'
+          );
+      }
+
+      // Delete the field record
+      await this.repository.deleteField(field.uuid);
+      return field.uuid;
+    });
+
+    const deletedFieldIds = await Promise.all(deletionPromises);
+
+    this.logger.info(
+      {
+        blockId,
+        deletedCount: deletedFieldIds.length,
+        deletedFieldIds,
+      },
+      'Fields deleted successfully'
+    );
+
+    return {
+      deletedCount: deletedFieldIds.length,
+      deletedFieldIds,
+    };
   }
 }

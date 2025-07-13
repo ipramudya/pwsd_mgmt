@@ -98,10 +98,39 @@ const createFields = z
     }
   );
 
+const updateField = z.object({
+  fieldId: z.string().uuid('Field ID must be a valid UUID'),
+  data: z.union([textFieldData, passwordFieldData, todoFieldData]),
+});
+
+const updateFields = z.object({
+  fields: z
+    .array(updateField)
+    .min(1, 'At least one field is required for update')
+    .max(50, 'Cannot update more than 50 fields at once'),
+});
+
+const deleteFields = z.object({
+  fieldIds: z
+    .array(z.string().uuid('Field ID must be a valid UUID'))
+    .min(1, 'At least one field ID is required for deletion')
+    .max(50, 'Cannot delete more than 50 fields at once'),
+});
+
 export const fieldValidations = {
   createFields: zValidator(
     'json',
     createFields,
     'Field creation validation failed'
+  ),
+  updateFields: zValidator(
+    'json',
+    updateFields,
+    'Field update validation failed'
+  ),
+  deleteFields: zValidator(
+    'json',
+    deleteFields,
+    'Field deletion validation failed'
   ),
 };

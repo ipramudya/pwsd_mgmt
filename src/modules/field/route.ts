@@ -25,4 +25,44 @@ fieldRoute.post('/', fieldValidations.createFields, async (c) => {
   );
 });
 
+fieldRoute.put('/block/:blockId', fieldValidations.updateFields, async (c) => {
+  const blockId = c.req.param('blockId');
+  const body = c.req.valid('json');
+  const userId = c.get('userId') as string;
+
+  const fieldService = new FieldService(c);
+  const result = await fieldService.updateFields(blockId, body, userId);
+
+  return c.json(
+    {
+      success: true,
+      data: result,
+      message: 'Fields updated successfully',
+    },
+    200
+  );
+});
+
+fieldRoute.delete(
+  '/block/:blockId',
+  fieldValidations.deleteFields,
+  async (c) => {
+    const blockId = c.req.param('blockId');
+    const body = c.req.valid('json');
+    const userId = c.get('userId') as string;
+
+    const fieldService = new FieldService(c);
+    const result = await fieldService.deleteFields(blockId, body, userId);
+
+    return c.json(
+      {
+        success: true,
+        data: result,
+        message: 'Fields deleted successfully',
+      },
+      200
+    );
+  }
+);
+
 export default fieldRoute;
