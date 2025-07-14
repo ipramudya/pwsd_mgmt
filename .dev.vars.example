@@ -1,0 +1,5 @@
+JWT_SECRET_ACCESS=your-jwt-access-secret-here
+JWT_SECRET_REFRESH=your-jwt-refresh-secret-here
+DB_URL=libsql://your-database-url-here
+DB_TOKEN=your-database-token-here
+ENCRYPTION_MASTER_KEY=your-encryption-master-key-here

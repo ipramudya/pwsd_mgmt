@@ -168,22 +168,56 @@ cd pass-management-api
 # Install dependencies
 npm install
 
+# Set up environment variables
+cp .dev.vars.example .dev.vars
+# Edit .dev.vars with your actual credentials
+
 # Start development server
 npm run dev
-
-# Run tests
-npm test
 
 # Type checking
 npm run typecheck
 
 # Linting
-npm run lint:ultracite
+npm run lint
 ```
 
 ### Environment Configuration
 
-Create your `wrangler.toml` for Cloudflare Workers configuration and set up your Turso database connection.
+#### Local Development
+
+1. **Copy the environment template:**
+
+   ```bash
+   cp .dev.vars.example .dev.vars
+   ```
+
+2. **Update `.dev.vars` with your actual credentials:**
+
+   ```bash
+   JWT_SECRET_ACCESS=your-jwt-access-secret-here
+   JWT_SECRET_REFRESH=your-jwt-refresh-secret-here
+   DB_URL=libsql://your-database-url-here
+   DB_TOKEN=your-database-token-here
+   ENCRYPTION_MASTER_KEY=your-encryption-master-key-here
+   ```
+
+3. **Never commit `.dev.vars` to version control** - it contains sensitive credentials.
+
+#### Production Deployment
+
+For production, use Cloudflare secrets instead of environment variables for better security:
+
+```bash
+# Set production secrets (more secure than environment variables)
+wrangler secret put JWT_SECRET_ACCESS
+wrangler secret put JWT_SECRET_REFRESH
+wrangler secret put DB_TOKEN
+wrangler secret put ENCRYPTION_MASTER_KEY
+
+# Set non-sensitive environment variables
+wrangler env add DB_URL
+```
 
 ## Documentation
 
