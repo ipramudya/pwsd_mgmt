@@ -128,4 +128,38 @@ blockRoute.delete('/:id', blockValidations.deleteBlock, async (c) => {
   );
 });
 
+blockRoute.get('/recent', blockValidations.recentBlocks, async (c) => {
+  const query = c.req.valid('query');
+  const userId = c.get('userId') as string;
+
+  const blockService = new BlockService(c);
+  const result = await blockService.getRecentBlocks(query, userId);
+
+  return c.json(
+    {
+      success: true,
+      data: result,
+      message: 'Recent blocks retrieved successfully',
+    },
+    200
+  );
+});
+
+blockRoute.get('/recent-updates', blockValidations.recentBlocks, async (c) => {
+  const query = c.req.valid('query');
+  const userId = c.get('userId') as string;
+
+  const blockService = new BlockService(c);
+  const result = await blockService.getRecentUpdatedBlocks(query, userId);
+
+  return c.json(
+    {
+      success: true,
+      data: result,
+      message: 'Recent updated blocks retrieved successfully',
+    },
+    200
+  );
+});
+
 export default blockRoute;

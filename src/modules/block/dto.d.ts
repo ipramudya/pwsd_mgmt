@@ -101,3 +101,18 @@ export type MoveBlockInput = {
   newPath: string;
   newParentId: number | null;
 };
+
+export type RecentBlocksRequestDto = {
+  days?: number;
+};
+
+export type RecentBlocksResponseDto = {
+  blocks: BlockDto[];
+  count: number;
+  timeframe: number;
+};
+
+export type RecentBlocksQuery = {
+  days: number;
+  createdById: string;
+};

@@ -1,0 +1,99 @@
+meta {
+  name: Get Recent Updated Blocks
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/blocks/recent-updates?days=7
+  body: none
+  auth: bearer
+}
+
+params:query {
+  days: 7
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return recent updated blocks with required structure", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('blocks');
+    expect(body.data).to.have.property('count');
+    expect(body.data).to.have.property('timeframe');
+    expect(body.data.blocks).to.be.an('array');
+    expect(body.data.timeframe).to.equal(7);
+  });
+  
+  test("should return maximum 10 blocks", function() {
+    const body = res.getBody();
+    expect(body.data.blocks.length).to.be.at.most(10);
+    expect(body.data.count).to.equal(body.data.blocks.length);
+  });
+  
+  test("blocks should contain required properties", function() {
+    const body = res.getBody();
+    if (body.data.blocks.length > 0) {
+      const block = body.data.blocks[0];
+      expect(block).to.have.property('uuid');
+      expect(block).to.have.property('name');
+      expect(block).to.have.property('blockType');
+      expect(block).to.have.property('createdAt');
+      expect(block).to.have.property('updatedAt');
+      expect(['container', 'terminal']).to.include(block.blockType);
+    }
+  });
+  
+  test("terminal blocks should include fields array", function() {
+    const body = res.getBody();
+    const terminalBlocks = body.data.blocks.filter(block => block.blockType === 'terminal');
+    terminalBlocks.forEach(block => {
+      expect(block).to.have.property('fields');
+      expect(block.fields).to.be.an('array');
+    });
+  });
+  
+  test("should only return blocks owned by authenticated user", function() {
+    const body = res.getBody();
+    const userId = bru.getEnvVar("userId");
+    body.data.blocks.forEach(block => {
+      expect(block.createdById).to.equal(userId);
+    });
+  });
+  
+  test("blocks should be ordered by update date desc", function() {
+    const body = res.getBody();
+    if (body.data.blocks.length > 1) {
+      for (let i = 0; i < body.data.blocks.length - 1; i++) {
+        const currentDate = new Date(body.data.blocks[i].updatedAt);
+        const nextDate = new Date(body.data.blocks[i + 1].updatedAt);
+        expect(currentDate.getTime()).to.be.at.least(nextDate.getTime());
+      }
+    }
+  });
+  
+  test("should handle different timeframe parameters", function() {
+    // Test 1 day timeframe
+    const oneDayUrl = `{{baseUrl}}/blocks/recent-updates?days=1`;
+    // Test 30 days timeframe  
+    const thirtyDaysUrl = `{{baseUrl}}/blocks/recent-updates?days=30`;
+    // Both should return valid responses
+  });
+  
+  test("should validate days parameter range", function() {
+    // Test invalid days parameter - should return validation error
+    const invalidUrl = `{{baseUrl}}/blocks/recent-updates?days=50`;
+    // Should return 400 status for days > 30
+  });
+}

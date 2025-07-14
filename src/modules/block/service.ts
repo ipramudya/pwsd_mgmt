@@ -14,6 +14,8 @@ import type {
   GetBreadcrumbsRequestDto,
   GetBreadcrumbsResponseDto,
   MoveBlockRequestDto,
+  RecentBlocksRequestDto,
+  RecentBlocksResponseDto,
 } from './dto';
 import { BlockRepository } from './repository';
 
@@ -326,6 +328,106 @@ export class BlockService {
     await this.repository.deleteBlock(uuid);
 
     this.logger.info({ uuid }, 'Block deleted successfully');
+  }
+
+  async getRecentBlocks(
+    input: RecentBlocksRequestDto,
+    createdById: string
+  ): Promise<RecentBlocksResponseDto> {
+    this.logger.info(
+      { days: input.days, createdById },
+      'Getting recent blocks'
+    );
+
+    const days = input.days || 7;
+    const recentBlocks = await this.repository.getRecentBlocks({
+      days,
+      createdById,
+    });
+
+    const blocksWithFields = await Promise.all(
+      recentBlocks.map(async (block) => {
+        const blockDto = this.toBlockDto(block);
+        if (block.blockType === 'terminal') {
+          try {
+            const fields =
+              await this.fieldService.getFieldsWithDecryptedPasswords(
+                block.uuid,
+                createdById
+              );
+            blockDto.fields = fields;
+          } catch (error) {
+            this.logger.warn(
+              { blockUuid: block.uuid, error },
+              'Failed to load fields for terminal block in recent results'
+            );
+            blockDto.fields = [];
+          }
+        }
+        return blockDto;
+      })
+    );
+
+    this.logger.info(
+      { days, foundBlocks: blocksWithFields.length },
+      'Recent blocks retrieved successfully'
+    );
+
+    return {
+      blocks: blocksWithFields,
+      count: blocksWithFields.length,
+      timeframe: days,
+    };
+  }
+
+  async getRecentUpdatedBlocks(
+    input: RecentBlocksRequestDto,
+    createdById: string
+  ): Promise<RecentBlocksResponseDto> {
+    this.logger.info(
+      { days: input.days, createdById },
+      'Getting recent updated blocks'
+    );
+
+    const days = input.days || 7;
+    const recentBlocks = await this.repository.getRecentUpdatedBlocks({
+      days,
+      createdById,
+    });
+
+    const blocksWithFields = await Promise.all(
+      recentBlocks.map(async (block) => {
+        const blockDto = this.toBlockDto(block);
+        if (block.blockType === 'terminal') {
+          try {
+            const fields =
+              await this.fieldService.getFieldsWithDecryptedPasswords(
+                block.uuid,
+                createdById
+              );
+            blockDto.fields = fields;
+          } catch (error) {
+            this.logger.warn(
+              { blockUuid: block.uuid, error },
+              'Failed to load fields for terminal block in recent updated results'
+            );
+            blockDto.fields = [];
+          }
+        }
+        return blockDto;
+      })
+    );
+
+    this.logger.info(
+      { days, foundBlocks: blocksWithFields.length },
+      'Recent updated blocks retrieved successfully'
+    );
+
+    return {
+      blocks: blocksWithFields,
+      count: blocksWithFields.length,
+      timeframe: days,
+    };
   }
 
   private toBlockDto(block: BlockRecord): BlockDto {

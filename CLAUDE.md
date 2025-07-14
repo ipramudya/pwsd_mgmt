@@ -180,6 +180,18 @@ Complete API documentation is available using Bruno in the `/docs` directory, in
 
 - **DELETE /:id**: Deletes a block and all its descendants. Requires confirmation by sending block name in request body to prevent accidental deletion. Uses path-based deletion for efficiency.
 
+- **GET /recent**: Retrieves recently created blocks (last 7 days by default). Returns maximum 10 blocks ordered by creation date descending:
+  - Optional days parameter: 1-30 days timeframe (default: 7)
+  - Terminal blocks include all their fields with decrypted password data
+  - Returns count, timeframe, and blocks array
+  - Only shows blocks owned by authenticated user
+
+- **GET /recent-updates**: Retrieves recently updated blocks (last 7 days by default). Returns maximum 10 blocks ordered by update date descending:
+  - Optional days parameter: 1-30 days timeframe (default: 7)
+  - Terminal blocks include all their fields with decrypted password data
+  - Returns count, timeframe, and blocks array
+  - Only shows blocks owned by authenticated user
+
 ### Search Endpoints (Prefix: `/api/v1/search`)
 
 - **GET /**: Comprehensive search functionality for blocks and fields. Searches through user's blocks by name and description, and fields by name. Returns unified results with navigation support:
@@ -275,3 +287,16 @@ Each endpoint includes example requests, expected responses, and automated tests
 - **Type Safety**: Full TypeScript implementation with proper Drizzle ORM typing and comprehensive error handling
 - **Authentication Required**: Private endpoint requiring JWT authentication with user ownership validation
 - **Bruno Documentation**: Complete API documentation with automated test suites for search functionality
+
+### Recent Data Access Implementation
+
+- **Recent Blocks Endpoints**: Two new endpoints for accessing recently created and recently updated blocks
+- **Fixed Result Limit**: Both endpoints return exactly 10 items maximum for consistent UI experience
+- **Configurable Timeframe**: Support for 1-30 days parameter with sensible 7-day default
+- **Optimized Queries**: SQL date filtering with proper indexing on createdAt and updatedAt columns
+- **Field Integration**: Automatic inclusion of decrypted password fields for terminal-type blocks
+- **Proper Ordering**: Recent blocks by creation date DESC, recent updates by update date DESC
+- **Validation & Security**: Comprehensive input validation and user ownership enforcement
+- **Error Handling**: Graceful degradation when field loading fails for individual blocks
+- **Type Safety**: Full TypeScript implementation with proper repository, service, and route patterns
+- **Documentation**: Complete Bruno API test suites with comprehensive validation scenarios

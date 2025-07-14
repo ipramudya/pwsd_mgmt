@@ -81,6 +81,20 @@ const deleteBlock = z.object({
   confirmationName: z.string().min(1, 'Confirmation name is required'),
 });
 
+const recentBlocks = z.object({
+  days: z
+    .string()
+    .optional()
+    .default('7')
+    .transform((val) => {
+      const num = Number.parseInt(val, 10);
+      if (Number.isNaN(num) || num < 1 || num > 30) {
+        throw new Error('Days must be between 1 and 30');
+      }
+      return num;
+    }),
+});
+
 export const blockValidations = {
   createBlock: zValidator(
     'json',
@@ -102,5 +116,10 @@ export const blockValidations = {
     'json',
     deleteBlock,
     'Block deletion validation failed'
+  ),
+  recentBlocks: zValidator(
+    'query',
+    recentBlocks,
+    'Recent blocks validation failed'
   ),
 };

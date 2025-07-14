@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, like, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, like, lt, sql } from 'drizzle-orm';
 import { createDatabase, type Database } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
@@ -10,6 +10,7 @@ import type {
   CreateBlockInput,
   GetBlocksQuery,
   MoveBlockInput,
+  RecentBlocksQuery,
   UpdateBlockInput,
 } from './dto';
 
@@ -336,6 +337,103 @@ export class BlockRepository {
     } catch (error) {
       this.logger.error({ uuid, error }, 'Failed to delete block');
       throw new DatabaseError('Failed to delete block', { error });
+    }
+  }
+
+  async getRecentBlocks(query: RecentBlocksQuery): Promise<BlockRecord[]> {
+    try {
+      this.logger.info(
+        { days: query.days, createdById: query.createdById },
+        'Getting recently created blocks'
+      );
+
+      const dateThreshold = sql`datetime('now', '-${query.days} days')`;
+
+      const results = await this.db
+        .select()
+        .from(blocks)
+        .where(
+          and(
+            eq(blocks.createdById, query.createdById),
+            gte(blocks.createdAt, dateThreshold)
+          )
+        )
+        .orderBy(desc(blocks.createdAt))
+        .limit(10);
+
+      const transformedBlocks: BlockRecord[] = results.map((block) => ({
+        id: block.id,
+        uuid: block.uuid,
+        name: block.name,
+        description: block.description,
+        path: block.path,
+        blockType: block.blockType as 'container' | 'terminal',
+        createdAt: block.createdAt,
+        updatedAt: block.updatedAt,
+        createdById: block.createdById,
+        parentId: block.parentId,
+      }));
+
+      this.logger.info(
+        { days: query.days, foundBlocks: transformedBlocks.length },
+        'Recent blocks retrieved successfully'
+      );
+
+      return transformedBlocks;
+    } catch (error) {
+      this.logger.error({ query, error }, 'Failed to get recent blocks');
+      throw new DatabaseError('Failed to get recent blocks', { error });
+    }
+  }
+
+  async getRecentUpdatedBlocks(
+    query: RecentBlocksQuery
+  ): Promise<BlockRecord[]> {
+    try {
+      this.logger.info(
+        { days: query.days, createdById: query.createdById },
+        'Getting recently updated blocks'
+      );
+
+      const dateThreshold = sql`datetime('now', '-${query.days} days')`;
+
+      const results = await this.db
+        .select()
+        .from(blocks)
+        .where(
+          and(
+            eq(blocks.createdById, query.createdById),
+            gte(blocks.updatedAt, dateThreshold)
+          )
+        )
+        .orderBy(desc(blocks.updatedAt))
+        .limit(10);
+
+      const transformedBlocks: BlockRecord[] = results.map((block) => ({
+        id: block.id,
+        uuid: block.uuid,
+        name: block.name,
+        description: block.description,
+        path: block.path,
+        blockType: block.blockType as 'container' | 'terminal',
+        createdAt: block.createdAt,
+        updatedAt: block.updatedAt,
+        createdById: block.createdById,
+        parentId: block.parentId,
+      }));
+
+      this.logger.info(
+        { days: query.days, foundBlocks: transformedBlocks.length },
+        'Recent updated blocks retrieved successfully'
+      );
+
+      return transformedBlocks;
+    } catch (error) {
+      this.logger.error(
+        { query, error },
+        'Failed to get recent updated blocks'
+      );
+      throw new DatabaseError('Failed to get recent updated blocks', { error });
     }
   }
 }

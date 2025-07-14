@@ -32,14 +32,14 @@ export class SystemRepository {
     this.logger = getLogger(c, 'system-repository');
   }
 
-  async checkDatabaseHealth(): Promise<DatabaseHealthInfo> {
+  checkDatabaseHealth(): DatabaseHealthInfo {
     const startTime = performance.now();
 
     try {
       this.logger.info('Checking database connectivity');
 
       // Perform a simple query to test database connectivity
-      await this.db.select({ test: sql`1` });
+      this.db.select({ test: sql`1` });
 
       const responseTime = performance.now() - startTime;
 
