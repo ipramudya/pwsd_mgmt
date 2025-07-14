@@ -1,0 +1,58 @@
+meta {
+  name: Export Data
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/data-transfer/export
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "format": "encrypted",
+    "decryptPasswords": false
+  }
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return correct content type", function() {
+    expect(res.getHeaders()["content-type"]).to.equal("application/gzip");
+  });
+  
+  test("should return content disposition with filename", function() {
+    const contentDisposition = res.getHeaders()["content-disposition"];
+    expect(contentDisposition).to.include("attachment");
+    expect(contentDisposition).to.include("filename");
+    expect(contentDisposition).to.include("_export.json.gz");
+  });
+  
+  test("should return content length", function() {
+    expect(res.getHeaders()["content-length"]).to.be.a("string");
+    expect(parseInt(res.getHeaders()["content-length"])).to.be.greaterThan(0);
+  });
+  
+  test("should return binary data", function() {
+    expect(res.getBody()).to.be.instanceof(ArrayBuffer);
+  });
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const contentDisposition = res.getHeaders()["content-disposition"];
+    const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+    if (filenameMatch) {
+      bru.setEnvVar("exportFilename", filenameMatch[1]);
+    }
+  }
+}

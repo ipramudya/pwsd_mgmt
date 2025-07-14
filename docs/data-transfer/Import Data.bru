@@ -1,0 +1,67 @@
+meta {
+  name: Import Data
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/data-transfer/import
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:multipart-form {
+  file: @file()
+  options: {
+    "overwriteExisting": false,
+    "preserveUuids": true,
+    "skipInvalidData": false
+  }
+}
+
+tests {
+  test("should return 200 status for successful import", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.be.a("boolean");
+  });
+  
+  test("should return import summary", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property("summary");
+    expect(body.data.summary).to.have.property("blocksImported");
+    expect(body.data.summary).to.have.property("fieldsImported");
+    expect(body.data.summary).to.have.property("blocksSkipped");
+    expect(body.data.summary).to.have.property("fieldsSkipped");
+    expect(body.data.summary).to.have.property("blocksUpdated");
+    expect(body.data.summary).to.have.property("fieldsUpdated");
+  });
+  
+  test("should return appropriate message", function() {
+    const body = res.getBody();
+    expect(body.message).to.be.a("string");
+    if (body.success) {
+      expect(body.message).to.include("imported successfully");
+    } else {
+      expect(body.message).to.include("completed with errors");
+    }
+  });
+  
+  test("should return errors array if import has issues", function() {
+    const body = res.getBody();
+    if (!body.success) {
+      expect(body.data.errors).to.be.an("array");
+      body.data.errors.forEach(error => {
+        expect(error).to.have.property("type");
+        expect(error).to.have.property("identifier");
+        expect(error).to.have.property("error");
+      });
+    }
+  });
+}
