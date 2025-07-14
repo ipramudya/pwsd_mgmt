@@ -34,6 +34,10 @@ Handles user authentication, authorization, and account verification including u
 
 Stores user information and serves as the identity for block and field ownership.
 
+### Search
+
+Provides comprehensive search functionality across user's blocks and fields with advanced filtering, pagination, and navigation support. Implements dual search capability (blocks and fields) with relevance ranking and result deduplication.
+
 **Database Schema:**
 
 - id: number, primary key, autoincrement
@@ -150,6 +154,8 @@ Complete API documentation is available using Bruno in the `/docs` directory, in
 ### Field Endpoints (Prefix: `/api/v1/fields`)
 
 - **POST /**: Creates fields in batch. Accepts an array of fields with different types (text, password, todo) and either attaches them to an existing terminal block (via blockId) or creates a new terminal block (via blockName). Each field has a name, type, and type-specific data. When creating a new block, supports optional parentId for hierarchical placement and description. Validates that target blocks are terminal type and verifies ownership. Returns created fields with their data and optionally the created block. Password fields are automatically encrypted using AES-256-GCM before storage.
+- **PUT /**: Updates multiple fields in batch. Accepts an array of field updates with id, name, and type-specific data changes. Validates ownership and field existence. Only allows updating fields within terminal blocks owned by the authenticated user.
+- **DELETE /**: Deletes multiple fields in batch. Accepts blockId and array of field IDs to delete. Validates ownership of both the block and fields before deletion. Ensures only fields within terminal blocks can be deleted.
 
 ### Block Endpoints (Prefix: `/api/v1/blocks`)
 
@@ -173,6 +179,20 @@ Complete API documentation is available using Bruno in the `/docs` directory, in
 - **PUT /:id/move**: Moves a block to different parent or root level. Accepts targetParentId in request body (null for root). Automatically updates path for moved block and all descendants. Prevents circular references.
 
 - **DELETE /:id**: Deletes a block and all its descendants. Requires confirmation by sending block name in request body to prevent accidental deletion. Uses path-based deletion for efficiency.
+
+### Search Endpoints (Prefix: `/api/v1/search`)
+
+- **GET /**: Comprehensive search functionality for blocks and fields. Searches through user's blocks by name and description, and fields by name. Returns unified results with navigation support:
+  - Query parameter: search term (required, 1-500 characters)
+  - Block type filter: 'container', 'terminal', or 'all' (default: 'all')
+  - Pagination: cursor-based with configurable limit (default: 20, max: 100)
+  - Sorting: by relevance (default), name, createdAt, or updatedAt
+  - Sort order: asc or desc (default: desc)
+  - Returns blocks with breadcrumb navigation and relative paths
+  - Terminal blocks include all their fields with decrypted password data
+  - Field matches include parent block information and match context
+  - Implements relevance ranking with exact matches prioritized
+  - Supports deduplication when blocks match both name/description and contain matching fields
 
 ## Hierarchical Data Implementation
 
@@ -199,6 +219,8 @@ The `/docs` directory contains comprehensive Bruno collections:
 
 - **Auth collection**: Registration, login, and token refresh examples
 - **Blocks collection**: All CRUD operations with pagination examples
+- **Fields collection**: Batch field operations with different field types
+- **Search collection**: Search functionality with filtering and navigation
 - **System collection**: Health check endpoints
 - **Environment variables**: Base URLs and authentication tokens
 - **Automated tests**: Validation of responses and data integrity
@@ -233,6 +255,23 @@ Each endpoint includes example requests, expected responses, and automated tests
 
 ### Enhanced Block Module
 
+- **Architecture Restructuring**: Moved field retrieval from individual field endpoints to block-centric approach for better performance and API design
+- **Unified Block Response**: GET block endpoints now return both container and terminal blocks, with terminal blocks automatically including all their fields
+- **Performance Optimization**: Implemented Drizzle ORM relational queries to eliminate N+1 query problems when fetching blocks with fields
+- **Batch Field Operations**: Added comprehensive batch update and delete operations for fields with proper validation and ownership checks
 - Updated block routes to work with new libSQL database connection
 - Maintained all existing hierarchical operations and path-based queries
 - Preserved pagination, filtering, and sorting capabilities
+
+### Search Module Implementation
+
+- **Comprehensive Search System**: New dedicated search module with separate repository, service, and route layers
+- **Dual Search Capability**: Searches both blocks (by name/description) and fields (by name) with unified result presentation
+- **Navigation Support**: Each search result includes breadcrumb navigation and relative paths for frontend integration
+- **Performance Optimized**: Uses efficient database queries with proper indexing and batch operations via Promise.all
+- **Advanced Filtering**: Supports block type filtering (container/terminal/all), pagination, and multiple sorting options
+- **Relevance Ranking**: Implements intelligent relevance scoring with exact matches prioritized over partial matches
+- **Result Deduplication**: Prevents duplicate results when blocks match both name/description and contain matching fields
+- **Type Safety**: Full TypeScript implementation with proper Drizzle ORM typing and comprehensive error handling
+- **Authentication Required**: Private endpoint requiring JWT authentication with user ownership validation
+- **Bruno Documentation**: Complete API documentation with automated test suites for search functionality

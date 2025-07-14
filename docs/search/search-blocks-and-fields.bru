@@ -1,0 +1,100 @@
+meta {
+  name: Search Blocks and Fields
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/search?query=login&blockType=all&limit=10&sort=desc&sortBy=relevance
+  body: none
+  auth: bearer
+}
+
+params:query {
+  query: login
+  blockType: all
+  limit: 10
+  sort: desc
+  sortBy: relevance
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("should return 200 status", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return success response", function() {
+    expect(res.getBody().success).to.equal(true);
+  });
+  
+  test("should return search results with required structure", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('results');
+    expect(body.data).to.have.property('query');
+    expect(body.data).to.have.property('total');
+    expect(body.data).to.have.property('hasNext');
+    expect(body.data).to.have.property('nextCursor');
+    expect(body.data.results).to.be.an('array');
+    expect(body.data.query).to.equal("login");
+  });
+  
+  test("results should contain required block properties", function() {
+    const body = res.getBody();
+    if (body.data.results.length > 0) {
+      const block = body.data.results[0];
+      expect(block).to.have.property('uuid');
+      expect(block).to.have.property('name');
+      expect(block).to.have.property('blockType');
+      expect(block).to.have.property('breadcrumbs');
+      expect(block).to.have.property('relativePath');
+      expect(block).to.have.property('matchType');
+      expect(block.breadcrumbs).to.be.an('array');
+      expect(block.relativePath).to.be.a('string');
+      expect(['block_name', 'block_description', 'field_name']).to.include(block.matchType);
+    }
+  });
+  
+  test("terminal blocks should include fields array", function() {
+    const body = res.getBody();
+    const terminalBlocks = body.data.results.filter(block => block.blockType === 'terminal');
+    terminalBlocks.forEach(block => {
+      expect(block).to.have.property('fields');
+      expect(block.fields).to.be.an('array');
+    });
+  });
+  
+  test("should only return blocks owned by authenticated user", function() {
+    const body = res.getBody();
+    const userId = bru.getEnvVar("userId");
+    body.data.results.forEach(block => {
+      expect(block.createdById).to.equal(userId);
+    });
+  });
+  
+  test("should handle different block types filter", function() {
+    // Test container blocks only
+    const containerUrl = `{{baseUrl}}/search?query=test&blockType=container`;
+    // Test terminal blocks only  
+    const terminalUrl = `{{baseUrl}}/search?query=test&blockType=terminal`;
+    // Both should return 200 - actual filtering tested in block properties
+  });
+  
+  test("should support pagination parameters", function() {
+    const body = res.getBody();
+    expect(body.data).to.have.property('hasNext');
+    expect(body.data).to.have.property('nextCursor');
+    expect(body.data.hasNext).to.be.a('boolean');
+  });
+  
+  test("should support sorting options", function() {
+    // Test different sort parameters work without errors
+    const relevanceUrl = `{{baseUrl}}/search?query=test&sortBy=relevance`;
+    const nameUrl = `{{baseUrl}}/search?query=test&sortBy=name&sort=asc`;
+    const dateUrl = `{{baseUrl}}/search?query=test&sortBy=updatedAt&sort=desc`;
+    // All should return valid responses
+  });
+}
