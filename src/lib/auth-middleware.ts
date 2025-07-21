@@ -6,6 +6,11 @@ export const authMiddleware = async (
   c: AppContext,
   next: () => Promise<void>
 ) => {
+  if (c.req.method === 'OPTIONS') {
+    await next();
+    return;
+  }
+
   const authorization = c.req.header('Authorization');
 
   if (!authorization) {

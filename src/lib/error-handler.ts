@@ -116,7 +116,14 @@ export function errorHandler() {
         },
       };
 
-      return c.json(response, err.status);
+      // Use Response object to preserve CORS headers
+      return new Response(JSON.stringify(response), {
+        status: err.status,
+        headers: {
+          'Content-Type': 'application/json',
+          ...c.res.headers,
+        },
+      });
     }
 
     if (err instanceof HTTPException) {
@@ -161,7 +168,14 @@ export function errorHandler() {
       },
     };
 
-    return c.json(response, 500);
+    // Use Response object to preserve CORS headers
+    return new Response(JSON.stringify(response), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...c.res.headers,
+      },
+    });
   };
 }
 
@@ -193,6 +207,13 @@ export function notFoundHandler() {
       },
     };
 
-    return c.json(response, 404);
+    // Use Response object to preserve CORS headers
+    return new Response(JSON.stringify(response), {
+      status: 404,
+      headers: {
+        'Content-Type': 'application/json',
+        ...c.res.headers,
+      },
+    });
   };
 }

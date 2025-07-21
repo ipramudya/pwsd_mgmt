@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { corsMiddleware } from './lib/cors-middleware';
 import { errorHandler, notFoundHandler } from './lib/error-handler';
 import { requestLogger } from './lib/logger';
 import authRoute from './modules/auth/route';
@@ -12,6 +13,9 @@ import type { AppHono } from './types';
 const app = new Hono<AppHono>();
 
 app.use(requestLogger());
+
+// Add CORS middleware to handle preflight requests
+app.use('*', corsMiddleware);
 
 const PREFIX = '/api/v1';
 
