@@ -4,8 +4,14 @@
   "linter": {
     "rules": {
       "style": {
-        "noEnum": "off"
+        "noEnum": "off",
+        "noParameterProperties": "off"
       }
+    }
+  },
+  "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
     }
   }
 }
