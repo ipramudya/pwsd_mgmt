@@ -21,13 +21,13 @@ export default class BlockRoute {
   private setupRoutes() {
     this.useCreateBlockRoute();
     this.useGetBlocksRoute();
+    this.useGetRecentBlocksRoute();
+    this.useGetRecentUpdatedBlocksRoute();
     this.useGetBlockChildrenRoute();
     this.useGetBreadcrumbsRoute();
     this.useUpdateBlockRoute();
     this.useMoveBlockRoute();
     this.useDeleteBlockRoute();
-    this.useGetRecentBlocksRoute();
-    this.useGetRecentUpdatedBlocksRoute();
   }
 
   private useCreateBlockRoute() {

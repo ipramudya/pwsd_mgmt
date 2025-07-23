@@ -380,7 +380,10 @@ export default class BlockRepository {
         'Getting recently created blocks'
       );
 
-      const dateThreshold = sql`datetime('now', '-${query.days} days')`;
+      const now = new Date();
+      const dateThreshold = new Date(
+        now.getTime() - query.days * 24 * 60 * 60 * 1000
+      );
 
       const results = await db
         .select()
@@ -432,7 +435,10 @@ export default class BlockRepository {
         'Getting recently updated blocks'
       );
 
-      const dateThreshold = sql`datetime('now', '-${query.days} days')`;
+      const now = new Date();
+      const dateThreshold = new Date(
+        now.getTime() - query.days * 24 * 60 * 60 * 1000
+      );
 
       const results = await db
         .select()

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 
 import { Hono } from 'hono';
-import { inject, injectable } from 'tsyringe';
+import { container, inject, injectable } from 'tsyringe';
 import { corsMiddleware } from './lib/cors-middleware';
 import { errorHandler, notFoundHandler } from './lib/error-handler';
 import { requestLogger } from './lib/logger';
@@ -57,3 +57,5 @@ export default class Main {
     this.app.notFound(notFoundHandler());
   }
 }
+
+container.registerSingleton(Main);
