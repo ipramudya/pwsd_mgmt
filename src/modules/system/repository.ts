@@ -1,49 +1,31 @@
+import { performance } from 'node:perf_hooks';
+
 import { sql } from 'drizzle-orm';
-import { createDatabase, type Database } from '../../lib/database';
+import { container, injectable } from 'tsyringe';
+
+import { createDatabase } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import { accounts, blocks, fields } from '../../lib/schemas';
 import type { AppContext } from '../../types';
+import type { DatabaseHealthInfo } from './dto';
 
-export interface DatabaseHealthInfo {
-  status: 'connected' | 'disconnected';
-  responseTime: number;
-  error?: string;
-  accountCount?: number;
-  blockCount?: number;
-  fieldCount?: number;
-}
-
-export interface SystemHealthInfo {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  timestamp: string;
-  uptime: number;
-  database: DatabaseHealthInfo;
-  version: string;
-  environment: string;
-}
-
-export class SystemRepository {
-  private db: Database;
-  private logger: ReturnType<typeof getLogger>;
-
-  constructor(c: AppContext) {
-    this.db = createDatabase(c);
-    this.logger = getLogger(c, 'system-repository');
-  }
-
-  checkDatabaseHealth(): DatabaseHealthInfo {
+@injectable()
+export default class SystemRepository {
+  checkDatabaseHealth(c: AppContext): DatabaseHealthInfo {
+    const logger = getLogger(c, 'system-repository');
+    const db = createDatabase(c);
     const startTime = performance.now();
 
     try {
-      this.logger.info('Checking database connectivity');
+      logger.info('Checking database connectivity');
 
       // Perform a simple query to test database connectivity
-      this.db.select({ test: sql`1` });
+      db.select({ test: sql`1` });
 
       const responseTime = performance.now() - startTime;
 
-      this.logger.info(
+      logger.info(
         { responseTime: Math.round(responseTime) },
         'Database health check successful'
       );
@@ -55,7 +37,7 @@ export class SystemRepository {
     } catch (error) {
       const responseTime = performance.now() - startTime;
 
-      this.logger.error(
+      logger.error(
         { error, responseTime: Math.round(responseTime) },
         'Database health check failed'
       );
@@ -69,23 +51,26 @@ export class SystemRepository {
     }
   }
 
-  async getDatabaseStats(): Promise<{
+  async getDatabaseStats(c: AppContext): Promise<{
     totalAccounts: number;
     totalBlocks: number;
     totalFields: number;
   }> {
-    try {
-      this.logger.info('Fetching database statistics');
+    const logger = getLogger(c, 'system-repository');
+    const db = createDatabase(c);
 
-      const [accountsResult] = await this.db
+    try {
+      logger.info('Fetching database statistics');
+
+      const [accountsResult] = await db
         .select({ count: sql`COUNT(*)` })
         .from(accounts);
 
-      const [blocksResult] = await this.db
+      const [blocksResult] = await db
         .select({ count: sql`COUNT(*)` })
         .from(blocks);
 
-      const [fieldsResult] = await this.db
+      const [fieldsResult] = await db
         .select({ count: sql`COUNT(*)` })
         .from(fields);
 
@@ -95,11 +80,13 @@ export class SystemRepository {
         totalFields: Number(fieldsResult.count) || 0,
       };
 
-      this.logger.info(stats, 'Database statistics retrieved successfully');
+      logger.info(stats, 'Database statistics retrieved successfully');
       return stats;
     } catch (error) {
-      this.logger.error({ error }, 'Failed to fetch database statistics');
+      logger.error({ error }, 'Failed to fetch database statistics');
       throw new DatabaseError('Failed to fetch database statistics', { error });
     }
   }
 }
+
+container.registerSingleton(SystemRepository);

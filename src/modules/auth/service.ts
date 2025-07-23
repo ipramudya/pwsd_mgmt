@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { container, inject, injectable } from 'tsyringe';
 import {
   AuthenticationError,
   ConflictError,
@@ -27,27 +28,25 @@ import {
   validatePasswordStrength,
   verifyPassword,
 } from './password';
-import { AuthRepository } from './repository';
+import AuthRepository from './repository';
 
-export class AuthService {
-  private repository: AuthRepository;
-  private c: AppContext;
-  private logger: ReturnType<typeof getLogger>;
+@injectable()
+export default class AuthService {
+  constructor(
+    @inject(AuthRepository)
+    private readonly repository: AuthRepository
+  ) {}
 
-  constructor(c: AppContext) {
-    this.c = c;
-    this.repository = new AuthRepository(c);
-    this.logger = getLogger(c, 'auth-service');
-  }
+  register = async (
+    c: AppContext,
+    input: RegisterRequestDto
+  ): Promise<RegisterResponseDto> => {
+    const logger = getLogger(c, 'auth-service');
 
-  async register(input: RegisterRequestDto): Promise<RegisterResponseDto> {
-    this.logger.info(
-      { username: input.username },
-      'Attempting user registration'
-    );
+    logger.info({ username: input.username }, 'Attempting user registration');
 
-    if (await this.repository.usernameExists(input.username)) {
-      this.logger.warn(
+    if (await this.repository.usernameExists(c, input.username)) {
+      logger.warn(
         { username: input.username },
         'Registration failed: username already exists'
       );
@@ -58,7 +57,7 @@ export class AuthService {
 
     const passwordValidation = validatePasswordStrength(input.password);
     if (!passwordValidation.isValid) {
-      this.logger.warn(
+      logger.warn(
         { username: input.username, errors: passwordValidation.errors },
         'Registration failed: password validation failed'
       );
@@ -71,27 +70,27 @@ export class AuthService {
     const hashedPassword = await hashPassword(input.password);
     const uuid = randomUUID();
 
-    await this.repository.createAccount({
+    await this.repository.createAccount(c, {
       uuid,
       username: input.username,
       password: hashedPassword,
     });
 
-    const createdAccount = await this.repository.findAccountByUuid(uuid);
+    const createdAccount = await this.repository.findAccountByUuid(c, uuid);
     if (!createdAccount) {
-      this.logger.error(
+      logger.error(
         { uuid, username: input.username },
         'Failed to find created account'
       );
       throw new NotFoundError('Failed to find created account');
     }
 
-    const tokens = await generateTokenPair(this.c, {
+    const tokens = await generateTokenPair(c, {
       userUUID: uuid,
       username: input.username,
     });
 
-    this.logger.info(
+    logger.info(
       { uuid, username: input.username },
       'User registration successful'
     );
@@ -100,14 +99,22 @@ export class AuthService {
       user: this.toAccountDto(createdAccount),
       tokens,
     };
-  }
+  };
 
-  async login(input: LoginRequestDto): Promise<LoginResponseDto> {
-    this.logger.info({ username: input.username }, 'Attempting user login');
+  login = async (
+    c: AppContext,
+    input: LoginRequestDto
+  ): Promise<LoginResponseDto> => {
+    const logger = getLogger(c, 'auth-service');
 
-    const account = await this.repository.findAccountByUsername(input.username);
+    logger.info({ username: input.username }, 'Attempting user login');
+
+    const account = await this.repository.findAccountByUsername(
+      c,
+      input.username
+    );
     if (!account) {
-      this.logger.warn(
+      logger.warn(
         { username: input.username },
         'Login failed: account not found'
       );
@@ -119,14 +126,14 @@ export class AuthService {
       account.password
     );
     if (!isPasswordValid) {
-      this.logger.warn(
+      logger.warn(
         { username: input.username, uuid: account.uuid },
         'Login failed: invalid password'
       );
       throw new AuthenticationError('Invalid username or password');
     }
 
-    await this.repository.updateLastLogin(account.uuid);
+    await this.repository.updateLastLogin(c, account.uuid);
 
     const updatedAccount = {
       ...account,
@@ -134,12 +141,12 @@ export class AuthService {
       updatedAt: new Date(),
     };
 
-    const tokens = await generateTokenPair(this.c, {
+    const tokens = await generateTokenPair(c, {
       userUUID: account.uuid,
       username: account.username,
     });
 
-    this.logger.info(
+    logger.info(
       { username: input.username, uuid: account.uuid },
       'User login successful'
     );
@@ -148,76 +155,58 @@ export class AuthService {
       user: this.toAccountDto(updatedAccount),
       tokens,
     };
-  }
+  };
 
-  async refreshToken(
+  refreshToken = async (
+    c: AppContext,
     input: RefreshTokenRequestDto
-  ): Promise<RefreshTokenResponseDto> {
-    this.logger.info('Attempting token refresh');
+  ): Promise<RefreshTokenResponseDto> => {
+    const logger = getLogger(c, 'auth-service');
 
-    const validationResult = await validateRefreshToken(
-      this.c,
-      input.refreshToken
-    );
+    logger.info('Attempting token refresh');
+
+    const validationResult = await validateRefreshToken(c, input.refreshToken);
 
     if (!validationResult.isValid) {
-      this.logger.warn(
-        'Token refresh failed: invalid or expired refresh token'
-      );
+      logger.warn('Token refresh failed: invalid or expired refresh token');
       throw new AuthenticationError('Invalid or expired refresh token');
     }
 
     if (!validationResult.payload) {
-      this.logger.warn('Token refresh failed: invalid token payload');
+      logger.warn('Token refresh failed: invalid token payload');
       throw new AuthenticationError('Invalid token payload');
     }
 
     const account = await this.repository.findAccountByUuid(
+      c,
       validationResult.payload.userUUID
     );
     if (!account) {
-      this.logger.warn(
+      logger.warn(
         { userUUID: validationResult.payload.userUUID },
         'Token refresh failed: account not found'
       );
       throw new NotFoundError('Account not found');
     }
 
-    const tokens = await refreshAccessToken(this.c, input.refreshToken);
+    const tokens = await refreshAccessToken(c, input.refreshToken);
     if (!tokens) {
-      this.logger.error(
+      logger.error(
         { userUUID: validationResult.payload.userUUID },
         'Token refresh failed: failed to refresh tokens'
       );
       throw new AuthenticationError('Failed to refresh tokens');
     }
 
-    this.logger.info(
+    logger.info(
       { userUUID: validationResult.payload.userUUID },
       'Token refresh successful'
     );
 
     return { tokens };
-  }
+  };
 
-  async getCurrentUser(userUUID: string): Promise<AccountDto> {
-    this.logger.info({ userUUID }, 'Fetching current user');
-
-    const account = await this.repository.findAccountByUuid(userUUID);
-    if (!account) {
-      this.logger.warn(
-        { userUUID },
-        'Current user fetch failed: account not found'
-      );
-      throw new NotFoundError('Account not found');
-    }
-
-    this.logger.info({ userUUID }, 'Current user fetch successful');
-
-    return this.toAccountDto(account);
-  }
-
-  private toAccountDto(account: AccountRecord): AccountDto {
+  private toAccountDto = (account: AccountRecord): AccountDto => {
     return {
       id: account.id,
       uuid: account.uuid,
@@ -226,5 +215,7 @@ export class AuthService {
       updatedAt: account.updatedAt,
       lastLoginAt: account.lastLoginAt,
     };
-  }
+  };
 }
+
+container.registerSingleton(AuthService);

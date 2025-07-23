@@ -1,28 +1,42 @@
 import { Hono } from 'hono';
+import { inject, injectable } from 'tsyringe';
 import { authMiddleware } from '../../lib/auth-middleware';
 import type { AppHono } from '../../types';
-import { SearchService } from './service';
+import SearchService from './service';
 import { searchValidations } from './validation';
 
-const searchRoute = new Hono<AppHono>();
+@injectable()
+export default class SearchRoute {
+  readonly route: Hono<AppHono>;
 
-searchRoute.use(authMiddleware);
+  constructor(
+    @inject(SearchService)
+    private readonly service: SearchService
+  ) {
+    this.route = new Hono<AppHono>();
+    this.route.use(authMiddleware);
+    this.setupRoutes();
+  }
 
-searchRoute.get('/', searchValidations.search, async (c) => {
-  const query = c.req.valid('query');
-  const userId = c.get('userId') as string;
+  private setupRoutes() {
+    this.useSearchRoute();
+  }
 
-  const searchService = new SearchService(c);
-  const result = await searchService.search(query, userId);
+  private useSearchRoute() {
+    this.route.get('/', searchValidations.search, async (c) => {
+      const query = c.req.valid('query');
+      const userId = c.get('userId') as string;
 
-  return c.json(
-    {
-      success: true,
-      data: result,
-      message: 'Search completed successfully',
-    },
-    200
-  );
-});
+      const result = await this.service.search(c, query, userId);
 
-export default searchRoute;
+      return c.json(
+        {
+          success: true,
+          data: result,
+          message: 'Search completed successfully',
+        },
+        200
+      );
+    });
+  }
+}

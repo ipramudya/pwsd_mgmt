@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gt, gte, like, lt, sql } from 'drizzle-orm';
-import { createDatabase, type Database } from '../../lib/database';
+import { container, injectable } from 'tsyringe';
+import { createDatabase } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import { blocks } from '../../lib/schemas';
@@ -14,23 +15,22 @@ import type {
   UpdateBlockInput,
 } from './dto';
 
-export class BlockRepository {
-  private db: Database;
-  private logger: ReturnType<typeof getLogger>;
+@injectable()
+export default class BlockRepository {
+  async createBlock(
+    c: AppContext,
+    input: CreateBlockInput
+  ): Promise<BlockRecord> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
 
-  constructor(c: AppContext) {
-    this.db = createDatabase(c);
-    this.logger = getLogger(c, 'block-repository');
-  }
-
-  async createBlock(input: CreateBlockInput): Promise<BlockRecord> {
     try {
-      this.logger.info(
+      logger.info(
         { uuid: input.uuid, name: input.name, createdById: input.createdById },
         'Creating block'
       );
 
-      const [result] = await this.db
+      const [result] = await db
         .insert(blocks)
         .values({
           uuid: input.uuid,
@@ -43,7 +43,7 @@ export class BlockRepository {
         })
         .returning();
 
-      this.logger.info(
+      logger.info(
         { uuid: input.uuid, blockId: result.id },
         'Block created successfully'
       );
@@ -61,7 +61,7 @@ export class BlockRepository {
         parentId: result.parentId,
       };
     } catch (error) {
-      this.logger.error(
+      logger.error(
         { uuid: input.uuid, name: input.name, error },
         'Failed to create block'
       );
@@ -69,22 +69,28 @@ export class BlockRepository {
     }
   }
 
-  async findBlockByUuid(uuid: string): Promise<BlockRecord | null> {
-    try {
-      this.logger.info({ uuid }, 'Finding block by uuid');
+  async findBlockByUuid(
+    c: AppContext,
+    uuid: string
+  ): Promise<BlockRecord | null> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
 
-      const [block] = await this.db
+    try {
+      logger.info({ uuid }, 'Finding block by uuid');
+
+      const [block] = await db
         .select()
         .from(blocks)
         .where(eq(blocks.uuid, uuid))
         .limit(1);
 
       if (!block) {
-        this.logger.info({ uuid }, 'Block not found by uuid');
+        logger.info({ uuid }, 'Block not found by uuid');
         return null;
       }
 
-      this.logger.info({ uuid, blockId: block.id }, 'Block found by uuid');
+      logger.info({ uuid, blockId: block.id }, 'Block found by uuid');
 
       return {
         id: block.id,
@@ -99,18 +105,24 @@ export class BlockRepository {
         parentId: block.parentId,
       };
     } catch (error) {
-      this.logger.error({ uuid, error }, 'Failed to find block by uuid');
+      logger.error({ uuid, error }, 'Failed to find block by uuid');
       throw new DatabaseError('Failed to find block by uuid', { error });
     }
   }
 
-  async getBlocks(query: GetBlocksQuery): Promise<{
+  async getBlocks(
+    c: AppContext,
+    query: GetBlocksQuery
+  ): Promise<{
     blocks: BlockRecord[];
     nextCursor: string | null;
     total: number;
   }> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info(query, 'Getting blocks with query');
+      logger.info(query, 'Getting blocks with query');
 
       const baseConditions = and(
         eq(blocks.createdById, query.createdById),
@@ -131,7 +143,7 @@ export class BlockRepository {
       const orderDirection = query.sort === 'desc' ? desc : asc;
       const sortColumn = blocks[query.sortBy];
 
-      const results = await this.db
+      const results = await db
         .select()
         .from(blocks)
         .where(whereCondition)
@@ -159,12 +171,12 @@ export class BlockRepository {
           ? String(blockResults.at(-1)?.[query.sortBy])
           : null;
 
-      const [totalResult] = await this.db
+      const [totalResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(blocks)
         .where(baseConditions);
 
-      this.logger.info(
+      logger.info(
         {
           foundBlocks: transformedBlocks.length,
           hasNext,
@@ -180,14 +192,20 @@ export class BlockRepository {
         total: totalResult.count,
       };
     } catch (error) {
-      this.logger.error({ query, error }, 'Failed to get blocks');
+      logger.error({ query, error }, 'Failed to get blocks');
       throw new DatabaseError('Failed to get blocks', { error });
     }
   }
 
-  async updateBlock(input: UpdateBlockInput): Promise<BlockRecord> {
+  async updateBlock(
+    c: AppContext,
+    input: UpdateBlockInput
+  ): Promise<BlockRecord> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info({ uuid: input.uuid }, 'Updating block');
+      logger.info({ uuid: input.uuid }, 'Updating block');
 
       const updateData: Record<string, unknown> = {
         updatedAt: sql`(unixepoch())`,
@@ -200,7 +218,7 @@ export class BlockRepository {
         updateData.description = input.description;
       }
 
-      const [result] = await this.db
+      const [result] = await db
         .update(blocks)
         .set(updateData)
         .where(eq(blocks.uuid, input.uuid))
@@ -210,7 +228,7 @@ export class BlockRepository {
         throw new DatabaseError('Block not found for update');
       }
 
-      this.logger.info({ uuid: input.uuid }, 'Block updated successfully');
+      logger.info({ uuid: input.uuid }, 'Block updated successfully');
 
       return {
         id: result.id,
@@ -225,19 +243,19 @@ export class BlockRepository {
         parentId: result.parentId,
       };
     } catch (error) {
-      this.logger.error({ uuid: input.uuid, error }, 'Failed to update block');
+      logger.error({ uuid: input.uuid, error }, 'Failed to update block');
       throw new DatabaseError('Failed to update block', { error });
     }
   }
 
-  async moveBlock(input: MoveBlockInput): Promise<void> {
-    try {
-      this.logger.info(
-        { uuid: input.uuid, newPath: input.newPath },
-        'Moving block'
-      );
+  async moveBlock(c: AppContext, input: MoveBlockInput): Promise<void> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
 
-      const block = await this.findBlockByUuid(input.uuid);
+    try {
+      logger.info({ uuid: input.uuid, newPath: input.newPath }, 'Moving block');
+
+      const block = await this.findBlockByUuid(c, input.uuid);
       if (!block) {
         throw new DatabaseError('Block not found for move operation');
       }
@@ -245,7 +263,7 @@ export class BlockRepository {
       const oldPath = block.path;
       const newPath = input.newPath;
 
-      await this.db.transaction(async (tx) => {
+      await db.transaction(async (tx) => {
         await tx
           .update(blocks)
           .set({
@@ -276,18 +294,24 @@ export class BlockRepository {
         await Promise.all(updatePromises);
       });
 
-      this.logger.info({ uuid: input.uuid }, 'Block moved successfully');
+      logger.info({ uuid: input.uuid }, 'Block moved successfully');
     } catch (error) {
-      this.logger.error({ uuid: input.uuid, error }, 'Failed to move block');
+      logger.error({ uuid: input.uuid, error }, 'Failed to move block');
       throw new DatabaseError('Failed to move block', { error });
     }
   }
 
-  async getBreadcrumbs(blockUuid: string): Promise<BreadcrumbDto[]> {
-    try {
-      this.logger.info({ blockUuid }, 'Getting breadcrumbs for block');
+  async getBreadcrumbs(
+    c: AppContext,
+    blockUuid: string
+  ): Promise<BreadcrumbDto[]> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
 
-      const block = await this.findBlockByUuid(blockUuid);
+    try {
+      logger.info({ blockUuid }, 'Getting breadcrumbs for block');
+
+      const block = await this.findBlockByUuid(c, blockUuid);
       if (!block) {
         throw new DatabaseError('Block not found for breadcrumbs');
       }
@@ -298,7 +322,7 @@ export class BlockRepository {
         return [];
       }
 
-      const breadcrumbBlocks = await this.db
+      const breadcrumbBlocks = await db
         .select({
           id: blocks.id,
           uuid: blocks.uuid,
@@ -310,46 +334,55 @@ export class BlockRepository {
           sql`CASE ${pathSegments.map((id, index) => `WHEN ${blocks.id} = ${id} THEN ${index}`).join(' ')} END`
         );
 
-      this.logger.info(
+      logger.info(
         { blockUuid, breadcrumbCount: breadcrumbBlocks.length },
         'Breadcrumbs retrieved successfully'
       );
 
       return breadcrumbBlocks;
     } catch (error) {
-      this.logger.error({ blockUuid, error }, 'Failed to get breadcrumbs');
+      logger.error({ blockUuid, error }, 'Failed to get breadcrumbs');
       throw new DatabaseError('Failed to get breadcrumbs', { error });
     }
   }
 
-  async deleteBlock(uuid: string): Promise<void> {
-    try {
-      this.logger.info({ uuid }, 'Deleting block and descendants');
+  async deleteBlock(c: AppContext, uuid: string): Promise<void> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
 
-      const block = await this.findBlockByUuid(uuid);
+    try {
+      logger.info({ uuid }, 'Deleting block and descendants');
+
+      const block = await this.findBlockByUuid(c, uuid);
       if (!block) {
         throw new DatabaseError('Block not found for deletion');
       }
 
-      await this.db.delete(blocks).where(like(blocks.path, `${block.path}%`));
+      await db.delete(blocks).where(like(blocks.path, `${block.path}%`));
 
-      this.logger.info({ uuid }, 'Block and descendants deleted successfully');
+      logger.info({ uuid }, 'Block and descendants deleted successfully');
     } catch (error) {
-      this.logger.error({ uuid, error }, 'Failed to delete block');
+      logger.error({ uuid, error }, 'Failed to delete block');
       throw new DatabaseError('Failed to delete block', { error });
     }
   }
 
-  async getRecentBlocks(query: RecentBlocksQuery): Promise<BlockRecord[]> {
+  async getRecentBlocks(
+    c: AppContext,
+    query: RecentBlocksQuery
+  ): Promise<BlockRecord[]> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info(
+      logger.info(
         { days: query.days, createdById: query.createdById },
         'Getting recently created blocks'
       );
 
       const dateThreshold = sql`datetime('now', '-${query.days} days')`;
 
-      const results = await this.db
+      const results = await db
         .select()
         .from(blocks)
         .where(
@@ -374,30 +407,34 @@ export class BlockRepository {
         parentId: block.parentId,
       }));
 
-      this.logger.info(
+      logger.info(
         { days: query.days, foundBlocks: transformedBlocks.length },
         'Recent blocks retrieved successfully'
       );
 
       return transformedBlocks;
     } catch (error) {
-      this.logger.error({ query, error }, 'Failed to get recent blocks');
+      logger.error({ query, error }, 'Failed to get recent blocks');
       throw new DatabaseError('Failed to get recent blocks', { error });
     }
   }
 
   async getRecentUpdatedBlocks(
+    c: AppContext,
     query: RecentBlocksQuery
   ): Promise<BlockRecord[]> {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info(
+      logger.info(
         { days: query.days, createdById: query.createdById },
         'Getting recently updated blocks'
       );
 
       const dateThreshold = sql`datetime('now', '-${query.days} days')`;
 
-      const results = await this.db
+      const results = await db
         .select()
         .from(blocks)
         .where(
@@ -422,18 +459,17 @@ export class BlockRepository {
         parentId: block.parentId,
       }));
 
-      this.logger.info(
+      logger.info(
         { days: query.days, foundBlocks: transformedBlocks.length },
         'Recent updated blocks retrieved successfully'
       );
 
       return transformedBlocks;
     } catch (error) {
-      this.logger.error(
-        { query, error },
-        'Failed to get recent updated blocks'
-      );
+      logger.error({ query, error }, 'Failed to get recent updated blocks');
       throw new DatabaseError('Failed to get recent updated blocks', { error });
     }
   }
 }
+
+container.registerSingleton(BlockRepository);

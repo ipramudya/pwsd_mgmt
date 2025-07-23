@@ -1,56 +1,79 @@
 import { Hono } from 'hono';
+import { container, inject, injectable } from 'tsyringe';
 import type { AppHono } from '../../types';
-import { AuthService } from './service';
+import AuthService from './service';
 import { authValidations } from './validation';
 
-const authRoute = new Hono<AppHono>();
+@injectable()
+export default class AuthRoute {
+  readonly route: Hono<AppHono>;
 
-authRoute.post('/register', authValidations.register, async (c) => {
-  const body = c.req.valid('json');
+  constructor(
+    @inject(AuthService)
+    private readonly authService: AuthService
+  ) {
+    this.route = new Hono<AppHono>();
+    this.setupRoutes();
+  }
 
-  const authService = new AuthService(c);
-  const result = await authService.register(body);
+  private setupRoutes() {
+    this.useRegisterRoute();
+    this.useLoginRoute();
+    this.useRefreshTokenRoute();
+  }
 
-  return c.json(
-    {
-      success: true,
-      data: result,
-      message: 'Account created successfully',
-    },
-    201
-  );
-});
+  private useRegisterRoute() {
+    this.route.post('/register', authValidations.register, async (c) => {
+      const body = c.req.valid('json');
+      const result = await this.authService.register(c, body);
 
-authRoute.post('/login', authValidations.login, async (c) => {
-  const body = c.req.valid('json');
+      return c.json(
+        {
+          success: true,
+          data: result,
+          message: 'Account created successfully',
+        },
+        201
+      );
+    });
+  }
 
-  const authService = new AuthService(c);
-  const result = await authService.login(body);
+  private useLoginRoute() {
+    this.route.post('/login', authValidations.login, async (c) => {
+      const body = c.req.valid('json');
 
-  return c.json(
-    {
-      success: true,
-      data: result,
-      message: 'Login successful',
-    },
-    200
-  );
-});
+      const result = await this.authService.login(c, body);
 
-authRoute.post('/refresh-token', authValidations.refreshToken, async (c) => {
-  const body = c.req.valid('json');
+      return c.json(
+        {
+          success: true,
+          data: result,
+          message: 'Login successful',
+        },
+        200
+      );
+    });
+  }
 
-  const authService = new AuthService(c);
-  const result = await authService.refreshToken(body);
+  private useRefreshTokenRoute() {
+    this.route.post(
+      '/refresh-token',
+      authValidations.refreshToken,
+      async (c) => {
+        const body = c.req.valid('json');
+        const result = await this.authService.refreshToken(c, body);
 
-  return c.json(
-    {
-      success: true,
-      data: result,
-      message: 'Token refreshed successfully',
-    },
-    200
-  );
-});
+        return c.json(
+          {
+            success: true,
+            data: result,
+            message: 'Token refreshed successfully',
+          },
+          200
+        );
+      }
+    );
+  }
+}
 
-export default authRoute;
+container.registerSingleton(AuthRoute);

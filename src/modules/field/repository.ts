@@ -1,5 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { createDatabase, type Database } from '../../lib/database';
+import { container, injectable } from 'tsyringe';
+import { createDatabase } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import {
@@ -10,6 +11,7 @@ import {
   todoFields,
 } from '../../lib/schemas';
 import type { AppContext } from '../../types';
+import type { BlockRecord } from '../block/dto';
 import type {
   CreateFieldInput,
   CreatePasswordFieldInput,
@@ -21,18 +23,17 @@ import type {
   TodoFieldRecord,
 } from './dto';
 
-export class FieldRepository {
-  private db: Database;
-  private logger: ReturnType<typeof getLogger>;
+@injectable()
+export default class FieldRepository {
+  async createField(
+    c: AppContext,
+    input: CreateFieldInput
+  ): Promise<FieldRecord> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-  constructor(c: AppContext) {
-    this.db = createDatabase(c);
-    this.logger = getLogger(c, 'field-repository');
-  }
-
-  async createField(input: CreateFieldInput): Promise<FieldRecord> {
     try {
-      this.logger.info(
+      logger.info(
         {
           fieldName: input.name,
           fieldType: input.type,
@@ -41,7 +42,7 @@ export class FieldRepository {
         'Creating field in database'
       );
 
-      const [result] = await this.db
+      const [result] = await db
         .insert(fields)
         .values({
           uuid: input.uuid,
@@ -52,25 +53,29 @@ export class FieldRepository {
         })
         .returning();
 
-      this.logger.info(
+      logger.info(
         { fieldId: result.id, fieldUuid: result.uuid },
         'Field created successfully'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to create field');
+      logger.error(error, 'Failed to create field');
       throw new DatabaseError('Failed to create field');
     }
   }
 
   async createTextFieldData(
+    c: AppContext,
     input: CreateTextFieldInput
   ): Promise<TextFieldRecord> {
-    try {
-      this.logger.info({ fieldId: input.fieldId }, 'Creating text field data');
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      const [result] = await this.db
+    try {
+      logger.info({ fieldId: input.fieldId }, 'Creating text field data');
+
+      const [result] = await db
         .insert(textFields)
         .values({
           text: input.text,
@@ -78,28 +83,29 @@ export class FieldRepository {
         })
         .returning();
 
-      this.logger.info(
+      logger.info(
         { textFieldId: result.id },
         'Text field data created successfully'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to create text field data');
+      logger.error(error, 'Failed to create text field data');
       throw new DatabaseError('Failed to create text field data');
     }
   }
 
   async createPasswordFieldData(
+    c: AppContext,
     input: CreatePasswordFieldInput
   ): Promise<PasswordFieldRecord> {
-    try {
-      this.logger.info(
-        { fieldId: input.fieldId },
-        'Creating password field data'
-      );
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      const [result] = await this.db
+    try {
+      logger.info({ fieldId: input.fieldId }, 'Creating password field data');
+
+      const [result] = await db
         .insert(passwordFields)
         .values({
           password: input.password,
@@ -107,28 +113,32 @@ export class FieldRepository {
         })
         .returning();
 
-      this.logger.info(
+      logger.info(
         { passwordFieldId: result.id },
         'Password field data created successfully'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to create password field data');
+      logger.error(error, 'Failed to create password field data');
       throw new DatabaseError('Failed to create password field data');
     }
   }
 
   async createTodoFieldData(
+    c: AppContext,
     input: CreateTodoFieldInput
   ): Promise<TodoFieldRecord> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info(
+      logger.info(
         { fieldId: input.fieldId, isChecked: input.isChecked },
         'Creating todo field data'
       );
 
-      const [result] = await this.db
+      const [result] = await db
         .insert(todoFields)
         .values({
           isChecked: input.isChecked,
@@ -136,42 +146,54 @@ export class FieldRepository {
         })
         .returning();
 
-      this.logger.info(
+      logger.info(
         { todoFieldId: result.id },
         'Todo field data created successfully'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to create todo field data');
+      logger.error(error, 'Failed to create todo field data');
       throw new DatabaseError('Failed to create todo field data');
     }
   }
 
-  async findFieldsByBlockId(blockId: string): Promise<FieldRecord[]> {
-    try {
-      this.logger.info({ blockId }, 'Finding fields by block ID');
+  async findFieldsByBlockId(
+    c: AppContext,
+    blockId: string
+  ): Promise<FieldRecord[]> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      const result = await this.db
+    try {
+      logger.info({ blockId }, 'Finding fields by block ID');
+
+      const result = await db
         .select()
         .from(fields)
         .where(eq(fields.blockId, blockId));
 
-      this.logger.info(
+      logger.info(
         { blockId, fieldCount: result.length },
         'Fields retrieved successfully'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to find fields by block ID');
+      logger.error(error, 'Failed to find fields by block ID');
       throw new DatabaseError('Failed to retrieve fields');
     }
   }
 
-  async findTextFieldData(fieldId: string): Promise<TextFieldRecord | null> {
+  async findTextFieldData(
+    c: AppContext,
+    fieldId: string
+  ): Promise<TextFieldRecord | null> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
     try {
-      const [result] = await this.db
+      const [result] = await db
         .select()
         .from(textFields)
         .where(eq(textFields.fieldId, fieldId))
@@ -179,16 +201,20 @@ export class FieldRepository {
 
       return result || null;
     } catch (error) {
-      this.logger.error(error, 'Failed to find text field data');
+      logger.error(error, 'Failed to find text field data');
       throw new DatabaseError('Failed to retrieve text field data');
     }
   }
 
   async findPasswordFieldData(
+    c: AppContext,
     fieldId: string
   ): Promise<PasswordFieldRecord | null> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
     try {
-      const [result] = await this.db
+      const [result] = await db
         .select()
         .from(passwordFields)
         .where(eq(passwordFields.fieldId, fieldId))
@@ -196,14 +222,20 @@ export class FieldRepository {
 
       return result || null;
     } catch (error) {
-      this.logger.error(error, 'Failed to find password field data');
+      logger.error(error, 'Failed to find password field data');
       throw new DatabaseError('Failed to retrieve password field data');
     }
   }
 
-  async findTodoFieldData(fieldId: string): Promise<TodoFieldRecord | null> {
+  async findTodoFieldData(
+    c: AppContext,
+    fieldId: string
+  ): Promise<TodoFieldRecord | null> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
     try {
-      const [result] = await this.db
+      const [result] = await db
         .select()
         .from(todoFields)
         .where(eq(todoFields.fieldId, fieldId))
@@ -211,73 +243,91 @@ export class FieldRepository {
 
       return result || null;
     } catch (error) {
-      this.logger.error(error, 'Failed to find todo field data');
+      logger.error(error, 'Failed to find todo field data');
       throw new DatabaseError('Failed to retrieve todo field data');
     }
   }
 
-  async findBlockByUuid(uuid: string) {
-    try {
-      this.logger.info({ blockUuid: uuid }, 'Finding block by UUID');
+  async findBlockByUuid(
+    c: AppContext,
+    uuid: string
+  ): Promise<BlockRecord | null> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      const [result] = await this.db
+    try {
+      logger.info({ blockUuid: uuid }, 'Finding block by UUID');
+
+      const [result] = await db
         .select()
         .from(blocks)
         .where(eq(blocks.uuid, uuid))
         .limit(1);
 
       if (!result) {
-        this.logger.warn({ blockUuid: uuid }, 'Block not found');
+        logger.warn({ blockUuid: uuid }, 'Block not found');
         return null;
       }
 
-      this.logger.info(
+      logger.info(
         { blockId: result.id, blockUuid: result.uuid },
         'Block found successfully'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to find block by UUID');
+      logger.error(error, 'Failed to find block by UUID');
       throw new DatabaseError('Failed to find block');
     }
   }
 
-  async findFieldByUuid(fieldId: string): Promise<FieldRecord | null> {
-    try {
-      this.logger.info({ fieldId }, 'Finding field by UUID');
+  async findFieldByUuid(
+    c: AppContext,
+    fieldId: string
+  ): Promise<FieldRecord | null> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      const [result] = await this.db
+    try {
+      logger.info({ fieldId }, 'Finding field by UUID');
+
+      const [result] = await db
         .select()
         .from(fields)
         .where(eq(fields.uuid, fieldId))
         .limit(1);
 
       if (!result) {
-        this.logger.warn({ fieldId }, 'Field not found');
+        logger.warn({ fieldId }, 'Field not found');
         return null;
       }
 
-      this.logger.info(
+      logger.info(
         { fieldId, fieldType: result.type },
         'Field found successfully'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to find field by UUID');
+      logger.error(error, 'Failed to find field by UUID');
       throw new DatabaseError('Failed to find field');
     }
   }
 
-  async findFieldsWithDataByBlockId(blockId: string) {
+  async findFieldsWithDataByBlockId(
+    c: AppContext,
+    blockId: string
+  ): Promise<FieldRecord[]> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info(
+      logger.info(
         { blockId },
         'Finding fields with data by block ID using optimized query'
       );
 
-      const result = await this.db.query.fields.findMany({
+      const result = await db.query.fields.findMany({
         where: eq(fields.blockId, blockId),
         with: {
           textField: true,
@@ -286,152 +336,181 @@ export class FieldRepository {
         },
       });
 
-      this.logger.info(
+      logger.info(
         { blockId, fieldCount: result.length },
         'Fields with data found successfully using optimized query'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to find fields with data by block ID');
+      logger.error(error, 'Failed to find fields with data by block ID');
       throw new DatabaseError('Failed to retrieve fields with data');
     }
   }
 
   async findFieldsByIdsAndBlockId(
+    c: AppContext,
     fieldIds: string[],
     blockId: string
   ): Promise<FieldRecord[]> {
-    try {
-      this.logger.info(
-        { fieldIds, blockId },
-        'Finding fields by IDs and block ID'
-      );
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      const result = await this.db
+    try {
+      logger.info({ fieldIds, blockId }, 'Finding fields by IDs and block ID');
+
+      const result = await db
         .select()
         .from(fields)
         .where(
           and(inArray(fields.uuid, fieldIds), eq(fields.blockId, blockId))
         );
 
-      this.logger.info(
+      logger.info(
         { foundCount: result.length, expectedCount: fieldIds.length },
         'Fields found by IDs and block ID'
       );
 
       return result;
     } catch (error) {
-      this.logger.error(error, 'Failed to find fields by IDs and block ID');
+      logger.error(error, 'Failed to find fields by IDs and block ID');
       throw new DatabaseError('Failed to retrieve fields');
     }
   }
 
-  async updateTextFieldData(fieldId: string, text: string): Promise<void> {
-    try {
-      this.logger.info({ fieldId }, 'Updating text field data');
+  async updateTextFieldData(
+    c: AppContext,
+    fieldId: string,
+    text: string
+  ): Promise<void> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      await this.db
+    try {
+      logger.info({ fieldId }, 'Updating text field data');
+      await db
         .update(textFields)
         .set({ text, updatedAt: new Date() })
         .where(eq(textFields.fieldId, fieldId));
 
-      this.logger.info({ fieldId }, 'Text field data updated successfully');
+      logger.info({ fieldId }, 'Text field data updated successfully');
     } catch (error) {
-      this.logger.error(error, 'Failed to update text field data');
+      logger.error(error, 'Failed to update text field data');
       throw new DatabaseError('Failed to update text field data');
     }
   }
 
   async updatePasswordFieldData(
+    c: AppContext,
     fieldId: string,
     encryptedPassword: string
   ): Promise<void> {
-    try {
-      this.logger.info({ fieldId }, 'Updating password field data');
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      await this.db
+    try {
+      logger.info({ fieldId }, 'Updating password field data');
+
+      await db
         .update(passwordFields)
         .set({ password: encryptedPassword, updatedAt: new Date() })
         .where(eq(passwordFields.fieldId, fieldId));
 
-      this.logger.info({ fieldId }, 'Password field data updated successfully');
+      logger.info({ fieldId }, 'Password field data updated successfully');
     } catch (error) {
-      this.logger.error(error, 'Failed to update password field data');
+      logger.error(error, 'Failed to update password field data');
       throw new DatabaseError('Failed to update password field data');
     }
   }
 
   async updateTodoFieldData(
+    c: AppContext,
     fieldId: string,
     isChecked: boolean
   ): Promise<void> {
-    try {
-      this.logger.info({ fieldId, isChecked }, 'Updating todo field data');
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      await this.db
+    try {
+      logger.info({ fieldId, isChecked }, 'Updating todo field data');
+
+      await db
         .update(todoFields)
         .set({ isChecked, updatedAt: new Date() })
         .where(eq(todoFields.fieldId, fieldId));
 
-      this.logger.info({ fieldId }, 'Todo field data updated successfully');
+      logger.info({ fieldId }, 'Todo field data updated successfully');
     } catch (error) {
-      this.logger.error(error, 'Failed to update todo field data');
+      logger.error(error, 'Failed to update todo field data');
       throw new DatabaseError('Failed to update todo field data');
     }
   }
 
-  async deleteTextFieldData(fieldId: string): Promise<void> {
+  async deleteTextFieldData(c: AppContext, fieldId: string): Promise<void> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info({ fieldId }, 'Deleting text field data');
+      logger.info({ fieldId }, 'Deleting text field data');
 
-      await this.db.delete(textFields).where(eq(textFields.fieldId, fieldId));
+      await db.delete(textFields).where(eq(textFields.fieldId, fieldId));
 
-      this.logger.info({ fieldId }, 'Text field data deleted successfully');
+      logger.info({ fieldId }, 'Text field data deleted successfully');
     } catch (error) {
-      this.logger.error(error, 'Failed to delete text field data');
+      logger.error(error, 'Failed to delete text field data');
       throw new DatabaseError('Failed to delete text field data');
     }
   }
 
-  async deletePasswordFieldData(fieldId: string): Promise<void> {
-    try {
-      this.logger.info({ fieldId }, 'Deleting password field data');
+  async deletePasswordFieldData(c: AppContext, fieldId: string): Promise<void> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
 
-      await this.db
+    try {
+      logger.info({ fieldId }, 'Deleting password field data');
+
+      await db
         .delete(passwordFields)
         .where(eq(passwordFields.fieldId, fieldId));
 
-      this.logger.info({ fieldId }, 'Password field data deleted successfully');
+      logger.info({ fieldId }, 'Password field data deleted successfully');
     } catch (error) {
-      this.logger.error(error, 'Failed to delete password field data');
+      logger.error(error, 'Failed to delete password field data');
       throw new DatabaseError('Failed to delete password field data');
     }
   }
 
-  async deleteTodoFieldData(fieldId: string): Promise<void> {
+  async deleteTodoFieldData(c: AppContext, fieldId: string): Promise<void> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info({ fieldId }, 'Deleting todo field data');
+      logger.info({ fieldId }, 'Deleting todo field data');
 
-      await this.db.delete(todoFields).where(eq(todoFields.fieldId, fieldId));
+      await db.delete(todoFields).where(eq(todoFields.fieldId, fieldId));
 
-      this.logger.info({ fieldId }, 'Todo field data deleted successfully');
+      logger.info({ fieldId }, 'Todo field data deleted successfully');
     } catch (error) {
-      this.logger.error(error, 'Failed to delete todo field data');
+      logger.error(error, 'Failed to delete todo field data');
       throw new DatabaseError('Failed to delete todo field data');
     }
   }
 
-  async deleteField(fieldId: string): Promise<void> {
+  async deleteField(c: AppContext, fieldId: string): Promise<void> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info({ fieldId }, 'Deleting field record');
+      logger.info({ fieldId }, 'Deleting field record');
 
-      await this.db.delete(fields).where(eq(fields.uuid, fieldId));
+      await db.delete(fields).where(eq(fields.uuid, fieldId));
 
-      this.logger.info({ fieldId }, 'Field record deleted successfully');
+      logger.info({ fieldId }, 'Field record deleted successfully');
     } catch (error) {
-      this.logger.error(error, 'Failed to delete field record');
+      logger.error(error, 'Failed to delete field record');
       throw new DatabaseError('Failed to delete field record');
     }
   }
 }
+
+container.registerSingleton(FieldRepository);

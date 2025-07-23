@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { gunzip, gzip } from 'node:zlib';
+import { inject, injectable } from 'tsyringe';
 import { ValidationError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import type { AppContext } from '../../types';
@@ -26,7 +27,7 @@ import type {
   ImportErrorDto,
   ImportSummaryDto,
 } from './dto';
-import { DataTransferRepository } from './repository';
+import DataTransferRepository from './repository';
 import type { FieldWithData, ProcessBlockOptions, UserRecord } from './types';
 
 const gzipAsync = promisify(gzip);
@@ -36,23 +37,21 @@ const gunzipAsync = promisify(gunzip);
 const TIMESTAMP_REGEX_1 = /[-:]/g;
 const TIMESTAMP_REGEX_2 = /\..+/;
 
-export class DataTransferService {
-  private repository: DataTransferRepository;
-  private logger: ReturnType<typeof getLogger>;
+@injectable()
+export default class DataTransferService {
+  constructor(
+    @inject(DataTransferRepository)
+    private readonly repository: DataTransferRepository
+  ) {}
 
-  constructor(c: AppContext) {
-    this.repository = new DataTransferRepository(c);
-    this.logger = getLogger(c, 'data-transfer-service');
-  }
-
-  /**
-   * Export all user data as compressed JSON file
-   */
   async exportUserData(
+    c: AppContext,
     options: ExportDataRequestDto,
     userId: string
   ): Promise<ExportDataResponseDto> {
-    this.logger.info(
+    const logger = getLogger(c, 'data-transfer-service');
+
+    logger.info(
       {
         userId,
         format: options.format,
@@ -62,11 +61,14 @@ export class DataTransferService {
     );
 
     try {
-      const { user, blocks, fields } =
-        await this.repository.getAllUserData(userId);
+      const { user, blocks, fields } = await this.repository.getAllUserData(
+        c,
+        userId
+      );
 
       const fieldsByBlock = this.groupFieldsByBlock(fields);
       const exportedBlocks = this.convertBlocksToExportFormat(
+        c,
         blocks,
         fieldsByBlock,
         options
@@ -80,9 +82,9 @@ export class DataTransferService {
         options
       );
 
-      return await this.compressAndFinalize(exportData, user.username);
+      return await this.compressAndFinalize(c, exportData, user.username);
     } catch (error) {
-      this.logger.error(
+      logger.error(
         {
           userId,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -106,6 +108,7 @@ export class DataTransferService {
   }
 
   private convertBlocksToExportFormat(
+    c: AppContext,
     blocks: BlockRecord[],
     fieldsByBlock: Map<string, FieldWithData[]>,
     options: ExportDataRequestDto
@@ -115,6 +118,7 @@ export class DataTransferService {
 
     for (const block of blocks) {
       const exportedFields = this.processBlockFields(
+        c,
         block,
         fieldsByBlock,
         options
@@ -141,6 +145,7 @@ export class DataTransferService {
   }
 
   private processBlockFields(
+    c: AppContext,
     block: Pick<BlockRecord, 'uuid' | 'blockType'>,
     fieldsByBlock: Map<string, FieldWithData[]>,
     options: ExportDataRequestDto
@@ -152,7 +157,12 @@ export class DataTransferService {
 
       for (const fieldWithData of blockFields) {
         const field = fieldWithData.field;
-        const fieldData = this.processFieldData(fieldWithData, field, options);
+        const fieldData = this.processFieldData(
+          c,
+          fieldWithData,
+          field,
+          options
+        );
 
         exportedFields.push({
           uuid: field.uuid,
@@ -169,10 +179,13 @@ export class DataTransferService {
   }
 
   private processFieldData(
+    c: AppContext,
     fieldWithData: FieldWithData,
     field: FieldWithData['field'],
     options: ExportDataRequestDto
   ): ExportedFieldDto['data'] {
+    const logger = getLogger(c, 'data-transfer-service');
+
     switch (field.type) {
       case 'text':
         return {
@@ -189,7 +202,7 @@ export class DataTransferService {
             passwordValue = decryptPasswordFromStorage(encryptedPassword);
             isEncrypted = false;
           } catch (error) {
-            this.logger.warn(
+            logger.warn(
               {
                 fieldId: field.uuid,
                 error: error instanceof Error ? error.message : 'Unknown error',
@@ -285,9 +298,12 @@ export class DataTransferService {
   }
 
   private async compressAndFinalize(
+    c: AppContext,
     exportData: ExportDataDto,
     username: string
   ): Promise<ExportDataResponseDto> {
+    const logger = getLogger(c, 'data-transfer-service');
+
     const jsonString = JSON.stringify(exportData);
     exportData.metadata.exportSizeBytes = Buffer.from(
       jsonString,
@@ -305,7 +321,7 @@ export class DataTransferService {
 
     const filename = `${timestamp}_${username}_export.json.gz`;
 
-    this.logger.info(
+    logger.info(
       {
         filename,
         originalSize: exportData.metadata.exportSizeBytes,
@@ -333,14 +349,14 @@ export class DataTransferService {
     };
   }
 
-  /**
-   * Import user data from uploaded file
-   */
   async importUserData(
+    c: AppContext,
     importRequest: ImportDataRequestDto,
     userId: string
   ): Promise<ImportDataResponseDto> {
-    this.logger.info(
+    const logger = getLogger(c, 'data-transfer-service');
+
+    logger.info(
       {
         userId,
         fileName: importRequest.file.name,
@@ -364,7 +380,7 @@ export class DataTransferService {
 
     try {
       // Parse the uploaded file
-      const exportData = await this.parseImportFile(importRequest.file);
+      const exportData = await this.parseImportFile(c, importRequest.file);
 
       if (!exportData) {
         throw new ValidationError('Invalid import file format');
@@ -378,8 +394,8 @@ export class DataTransferService {
 
       // Clear existing data if overwriting
       if (options.overwriteExisting) {
-        await this.repository.clearAllUserData(userId);
-        this.logger.info({ userId }, 'Cleared existing user data for import');
+        await this.repository.clearAllUserData(c, userId);
+        logger.info({ userId }, 'Cleared existing user data for import');
       }
 
       // Collect all blocks for processing
@@ -424,6 +440,7 @@ export class DataTransferService {
 
         // Process current block
         await this.processSingleBlock(
+          c,
           block,
           options,
           userId,
@@ -457,6 +474,7 @@ export class DataTransferService {
       // Batch import all data
       if (blocksToCreate.length > 0 || fieldsToCreate.length > 0) {
         await this.repository.batchImportData(
+          c,
           blocksToCreate,
           fieldsToCreate,
           textFieldsToCreate,
@@ -465,7 +483,7 @@ export class DataTransferService {
         );
       }
 
-      this.logger.info(
+      logger.info(
         {
           userId,
           summary,
@@ -480,7 +498,7 @@ export class DataTransferService {
         errors: errors.length > 0 ? errors : undefined,
       };
     } catch (error) {
-      this.logger.error(
+      logger.error(
         {
           userId,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -491,10 +509,12 @@ export class DataTransferService {
     }
   }
 
-  /**
-   * Parse uploaded file and extract export data
-   */
-  private async parseImportFile(file: File): Promise<ExportDataDto | null> {
+  private async parseImportFile(
+    c: AppContext,
+    file: File
+  ): Promise<ExportDataDto | null> {
+    const logger = getLogger(c, 'data-transfer-service');
+
     try {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -524,7 +544,7 @@ export class DataTransferService {
 
       return null;
     } catch (error) {
-      this.logger.error(
+      logger.error(
         {
           fileName: file.name,
           fileSize: file.size,
@@ -536,9 +556,6 @@ export class DataTransferService {
     }
   }
 
-  /**
-   * Validate if parsed data is valid export data
-   */
   private isValidExportData(data: unknown): data is ExportDataDto {
     if (!data || typeof data !== 'object') {
       return false;
@@ -573,6 +590,7 @@ export class DataTransferService {
   }
 
   private async processSingleBlock(
+    c: AppContext,
     block: ExportedBlockDto,
     options: ProcessBlockOptions,
     userId: string,
@@ -590,6 +608,7 @@ export class DataTransferService {
       const blockUuid = options.preserveUuids ? block.uuid : randomUUID();
 
       const shouldSkip = await this.shouldSkipExistingBlock(
+        c,
         blockUuid,
         block.uuid,
         options,
@@ -738,6 +757,7 @@ export class DataTransferService {
   }
 
   private async shouldSkipExistingBlock(
+    c: AppContext,
     blockUuid: string,
     originalBlockUuid: string,
     options: Pick<ProcessBlockOptions, 'overwriteExisting' | 'skipInvalidData'>,
@@ -746,7 +766,7 @@ export class DataTransferService {
     processedBlocks: Set<string>
   ): Promise<boolean> {
     if (
-      (await this.repository.blockExists(blockUuid)) &&
+      (await this.repository.blockExists(c, blockUuid)) &&
       !options.overwriteExisting
     ) {
       if (options.skipInvalidData) {

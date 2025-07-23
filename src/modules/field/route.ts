@@ -1,68 +1,102 @@
 import { Hono } from 'hono';
+import { container, inject, injectable } from 'tsyringe';
 import { authMiddleware } from '../../lib/auth-middleware';
 import type { AppHono } from '../../types';
-import { FieldService } from './service';
+import FieldService from './service';
 import { fieldValidations } from './validation';
 
-const fieldRoute = new Hono<AppHono>();
+@injectable()
+export default class FieldRoute {
+  readonly route: Hono<AppHono>;
 
-fieldRoute.use(authMiddleware);
+  constructor(
+    @inject(FieldService)
+    private readonly fieldService: FieldService
+  ) {
+    this.route = new Hono<AppHono>();
+    this.route.use(authMiddleware);
+    this.setupRoutes();
+  }
 
-fieldRoute.post('/', fieldValidations.createFields, async (c) => {
-  const body = c.req.valid('json');
-  const userId = c.get('userId') as string;
+  private setupRoutes() {
+    this.useCreateFieldsRoute();
+    this.useUpdateFieldRoute();
+    this.useDeleteFieldsRoute();
+  }
 
-  const fieldService = new FieldService(c);
-  const result = await fieldService.createFields(body, userId);
+  private useCreateFieldsRoute() {
+    this.route.post('/', fieldValidations.createFields, async (c) => {
+      const body = c.req.valid('json');
+      const userId = c.get('userId') as string;
 
-  return c.json(
-    {
-      success: true,
-      data: result,
-      message: 'Fields created successfully',
-    },
-    201
-  );
-});
+      const result = await this.fieldService.createFields(c, body, userId);
 
-fieldRoute.put('/block/:blockId', fieldValidations.updateFields, async (c) => {
-  const blockId = c.req.param('blockId');
-  const body = c.req.valid('json');
-  const userId = c.get('userId') as string;
+      return c.json(
+        {
+          success: true,
+          data: result,
+          message: 'Fields created successfully',
+        },
+        201
+      );
+    });
+  }
 
-  const fieldService = new FieldService(c);
-  const result = await fieldService.updateFields(blockId, body, userId);
+  private useUpdateFieldRoute() {
+    this.route.put(
+      '/block/:blockId',
+      fieldValidations.updateFields,
+      async (c) => {
+        const blockId = c.req.param('blockId');
+        const body = c.req.valid('json');
+        const userId = c.get('userId') as string;
 
-  return c.json(
-    {
-      success: true,
-      data: result,
-      message: 'Fields updated successfully',
-    },
-    200
-  );
-});
+        const result = await this.fieldService.updateFields(
+          c,
+          blockId,
+          body,
+          userId
+        );
 
-fieldRoute.delete(
-  '/block/:blockId',
-  fieldValidations.deleteFields,
-  async (c) => {
-    const blockId = c.req.param('blockId');
-    const body = c.req.valid('json');
-    const userId = c.get('userId') as string;
-
-    const fieldService = new FieldService(c);
-    const result = await fieldService.deleteFields(blockId, body, userId);
-
-    return c.json(
-      {
-        success: true,
-        data: result,
-        message: 'Fields deleted successfully',
-      },
-      200
+        return c.json(
+          {
+            success: true,
+            data: result,
+            message: 'Fields updated successfully',
+          },
+          200
+        );
+      }
     );
   }
-);
 
-export default fieldRoute;
+  private useDeleteFieldsRoute() {
+    this.route.delete(
+      '/block/:blockId',
+      fieldValidations.deleteFields,
+      async (c) => {
+        const blockId = c.req.param('blockId');
+        const body = c.req.valid('json');
+        const userId = c.get('userId') as string;
+
+        const result = await this.fieldService.deleteFields(
+          c,
+          blockId,
+          body,
+          userId
+        );
+
+        return c.json(
+          {
+            success: true,
+            data: result,
+            message: 'Fields deleted successfully',
+          },
+          200
+        );
+      }
+    );
+  }
+}
+
+container.registerSingleton(FieldRoute);

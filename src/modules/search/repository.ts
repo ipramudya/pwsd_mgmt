@@ -9,7 +9,8 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-import { createDatabase, type Database } from '../../lib/database';
+import { container, injectable } from 'tsyringe';
+import { createDatabase } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import { blocks, fields } from '../../lib/schemas';
@@ -20,16 +21,10 @@ import type {
   SearchRequestDto,
 } from './dto';
 
-export class SearchRepository {
-  private db: Database;
-  private logger: ReturnType<typeof getLogger>;
-
-  constructor(c: AppContext) {
-    this.db = createDatabase(c);
-    this.logger = getLogger(c, 'search-repository');
-  }
-
+@injectable()
+export default class SearchRepository {
   async searchBlocks(
+    c: AppContext,
     input: SearchRequestDto,
     userId: string
   ): Promise<{
@@ -37,8 +32,10 @@ export class SearchRepository {
     total: number;
     nextCursor: string | null;
   }> {
+    const logger = getLogger(c, 'search-repository');
+
     try {
-      this.logger.info(
+      logger.info(
         { query: input.query, userId, blockType: input.blockType },
         'Searching blocks by name and description'
       );
@@ -55,20 +52,21 @@ export class SearchRepository {
       const orderBy = this.buildBlockOrderBy(input, searchPattern);
 
       const searchResults = await this.executeBlockSearch(
+        c,
         baseConditions,
         orderBy,
         limit,
         offset
       );
 
-      const total = await this.getBlockSearchCount(baseConditions);
+      const total = await this.getBlockSearchCount(c, baseConditions);
       const { results, hasNext, nextCursor } = this.processPaginationResults(
         searchResults,
         limit,
         offset
       );
 
-      this.logger.info(
+      logger.info(
         {
           query: input.query,
           foundResults: results.length,
@@ -80,7 +78,7 @@ export class SearchRepository {
 
       return { blocks: results, total, nextCursor };
     } catch (error) {
-      this.logger.error(error, 'Failed to search blocks');
+      logger.error(error, 'Failed to search blocks');
       throw new DatabaseError('Failed to search blocks');
     }
   }
@@ -138,12 +136,15 @@ export class SearchRepository {
   }
 
   private executeBlockSearch(
+    c: AppContext,
     conditions: SQL[],
     orderBy: SQL | SQL[],
     limit: number,
     offset: number
   ) {
-    return this.db
+    const db = createDatabase(c);
+
+    return db
       .select()
       .from(blocks)
       .where(and(...conditions))
@@ -152,8 +153,13 @@ export class SearchRepository {
       .offset(offset);
   }
 
-  private async getBlockSearchCount(conditions: SQL[]): Promise<number> {
-    const [countResult] = await this.db
+  private async getBlockSearchCount(
+    c: AppContext,
+    conditions: SQL[]
+  ): Promise<number> {
+    const db = createDatabase(c);
+
+    const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(blocks)
       .where(and(...conditions));
@@ -178,6 +184,7 @@ export class SearchRepository {
   }
 
   async searchFieldsInTerminalBlocks(
+    c: AppContext,
     input: SearchRequestDto,
     userId: string
   ): Promise<{
@@ -185,8 +192,10 @@ export class SearchRepository {
     total: number;
     nextCursor: string | null;
   }> {
+    const logger = getLogger(c, 'search-repository');
+
     try {
-      this.logger.info(
+      logger.info(
         { query: input.query, userId },
         'Searching fields in terminal blocks'
       );
@@ -199,20 +208,21 @@ export class SearchRepository {
       const orderBy = this.buildFieldOrderBy(searchPattern);
 
       const fieldMatches = await this.executeFieldSearch(
+        c,
         conditions,
         orderBy,
         limit,
         offset
       );
 
-      const total = await this.getFieldSearchCount(conditions);
+      const total = await this.getFieldSearchCount(c, conditions);
       const { results, hasNext, nextCursor } = this.processPaginationResults(
         fieldMatches,
         limit,
         offset
       );
 
-      this.logger.info(
+      logger.info(
         {
           query: input.query,
           foundFieldMatches: results.length,
@@ -224,7 +234,7 @@ export class SearchRepository {
 
       return { fieldMatches: results, total, nextCursor };
     } catch (error) {
-      this.logger.error(error, 'Failed to search fields');
+      logger.error(error, 'Failed to search fields');
       throw new DatabaseError('Failed to search fields');
     }
   }
@@ -251,12 +261,15 @@ export class SearchRepository {
   }
 
   private executeFieldSearch(
+    c: AppContext,
     conditions: SQL[],
     orderBy: SQL[],
     limit: number,
     offset: number
   ) {
-    return this.db
+    const db = createDatabase(c);
+
+    return db
       .select({
         blockId: blocks.id,
         blockUuid: blocks.uuid,
@@ -284,8 +297,13 @@ export class SearchRepository {
       .offset(offset);
   }
 
-  private async getFieldSearchCount(conditions: SQL[]): Promise<number> {
-    const [countResult] = await this.db
+  private async getFieldSearchCount(
+    c: AppContext,
+    conditions: SQL[]
+  ): Promise<number> {
+    const db = createDatabase(c);
+
+    const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(blocks)
       .innerJoin(fields, eq(fields.blockId, blocks.uuid))
@@ -295,13 +313,17 @@ export class SearchRepository {
   }
 
   async getBreadcrumbs(
+    c: AppContext,
     blockId: number
   ): Promise<{ id: number; uuid: string; name: string }[]> {
+    const logger = getLogger(c, 'search-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info({ blockId }, 'Getting breadcrumbs for search result');
+      logger.info({ blockId }, 'Getting breadcrumbs for search result');
 
       // Get the target block first to extract its path
-      const [targetBlock] = await this.db
+      const [targetBlock] = await db
         .select()
         .from(blocks)
         .where(eq(blocks.id, blockId))
@@ -322,7 +344,7 @@ export class SearchRepository {
       }
 
       // Get all parent blocks in the path
-      const parentBlocks = await this.db
+      const parentBlocks = await db
         .select({
           id: blocks.id,
           uuid: blocks.uuid,
@@ -339,15 +361,17 @@ export class SearchRepository {
             !!block
         );
 
-      this.logger.info(
+      logger.info(
         { blockId, breadcrumbCount: sortedBreadcrumbs.length },
         'Breadcrumbs retrieved successfully'
       );
 
       return sortedBreadcrumbs;
     } catch (error) {
-      this.logger.error(error, 'Failed to get breadcrumbs');
+      logger.error(error, 'Failed to get breadcrumbs');
       throw new DatabaseError('Failed to get breadcrumbs');
     }
   }
 }
+
+container.registerSingleton(SearchRepository);

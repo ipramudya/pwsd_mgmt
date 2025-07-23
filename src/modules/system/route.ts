@@ -1,53 +1,72 @@
 import { Hono } from 'hono';
+import { container, inject, injectable } from 'tsyringe';
 import type { AppHono } from '../../types';
-import { SystemService } from './service';
+import SystemService from './service';
 
-const systemRoute = new Hono<AppHono>();
+@injectable()
+export default class SystemRoute {
+  readonly route: Hono<AppHono>;
 
-systemRoute.get('/health', async (c) => {
-  const service = new SystemService(c);
-  const healthInfo = await service.getHealthCheck();
-
-  if (healthInfo.status === 'unhealthy') {
-    return c.json(
-      {
-        success: false,
-        data: healthInfo,
-      },
-      503
-    );
+  constructor(
+    @inject(SystemService)
+    private readonly service: SystemService
+  ) {
+    this.route = new Hono<AppHono>();
+    this.setupRoutes();
   }
 
-  return c.json(
-    {
-      success: true,
-      data: healthInfo,
-    },
-    200
-  );
-});
-
-systemRoute.get('/health/detailed', async (c) => {
-  const service = new SystemService(c);
-  const detailedHealthInfo = await service.getDetailedHealthCheck();
-
-  if (detailedHealthInfo.status === 'unhealthy') {
-    return c.json(
-      {
-        success: false,
-        data: detailedHealthInfo,
-      },
-      503
-    );
+  private setupRoutes() {
+    this.useGetHealthCheckRoute();
+    this.useGetDetailedHealthCheckRoute();
   }
 
-  return c.json(
-    {
-      success: true,
-      data: detailedHealthInfo,
-    },
-    200
-  );
-});
+  private useGetHealthCheckRoute() {
+    this.route.get('/health', (c) => {
+      const healthInfo = this.service.getHealthCheck(c);
 
-export default systemRoute;
+      if (healthInfo.status === 'unhealthy') {
+        return c.json(
+          {
+            success: false,
+            data: healthInfo,
+          },
+          503
+        );
+      }
+
+      return c.json(
+        {
+          success: true,
+          data: healthInfo,
+        },
+        200
+      );
+    });
+  }
+
+  private useGetDetailedHealthCheckRoute() {
+    this.route.get('/health/detailed', async (c) => {
+      const detailedHealthInfo = await this.service.getDetailedHealthCheck(c);
+
+      if (detailedHealthInfo.status === 'unhealthy') {
+        return c.json(
+          {
+            success: false,
+            data: detailedHealthInfo,
+          },
+          503
+        );
+      }
+
+      return c.json(
+        {
+          success: true,
+          data: detailedHealthInfo,
+        },
+        200
+      );
+    });
+  }
+}
+
+container.registerSingleton(SystemRoute);

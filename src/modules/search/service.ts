@@ -1,6 +1,7 @@
+import { container, inject, injectable } from 'tsyringe';
 import { getLogger } from '../../lib/logger';
 import type { AppContext } from '../../types';
-import { FieldService } from '../field/service';
+import FieldService from '../field/service';
 import type {
   SearchBlockResultDto,
   SearchBreadcrumbDto,
@@ -9,24 +10,25 @@ import type {
   SearchRequestDto,
   SearchResponseDto,
 } from './dto';
-import { SearchRepository } from './repository';
+import SearchRepository from './repository';
 
-export class SearchService {
-  private repository: SearchRepository;
-  private fieldService: FieldService;
-  private logger: ReturnType<typeof getLogger>;
-
-  constructor(c: AppContext) {
-    this.repository = new SearchRepository(c);
-    this.fieldService = new FieldService(c);
-    this.logger = getLogger(c, 'search-service');
-  }
+@injectable()
+export default class SearchService {
+  constructor(
+    @inject(SearchRepository)
+    private readonly repository: SearchRepository,
+    @inject(FieldService)
+    private readonly fieldService: FieldService
+  ) {}
 
   async search(
+    c: AppContext,
     input: SearchRequestDto,
     userId: string
   ): Promise<SearchResponseDto> {
-    this.logger.info(
+    const logger = getLogger(c, 'search-service');
+
+    logger.info(
       {
         query: input.query,
         userId,
@@ -39,12 +41,13 @@ export class SearchService {
 
     // Perform parallel searches for blocks and fields
     const [blockSearchResult, fieldSearchResult] = await Promise.all([
-      this.searchBlocks(input, userId),
-      this.searchFieldsInTerminalBlocks(input, userId),
+      this.searchBlocks(c, input, userId),
+      this.searchFieldsInTerminalBlocks(c, input, userId),
     ]);
 
     // Combine and deduplicate results
     const combinedResults = await this.combineSearchResults(
+      c,
       blockSearchResult.blocks,
       fieldSearchResult.fieldMatches,
       input,
@@ -60,7 +63,7 @@ export class SearchService {
 
     const totalResults = blockSearchResult.total + fieldSearchResult.total;
 
-    this.logger.info(
+    logger.info(
       {
         query: input.query,
         blockMatches: blockSearchResult.blocks.length,
@@ -82,10 +85,11 @@ export class SearchService {
   }
 
   private async searchBlocks(
+    c: AppContext,
     input: SearchRequestDto,
     userId: string
   ): Promise<{ blocks: SearchRecord[]; total: number }> {
-    const result = await this.repository.searchBlocks(input, userId);
+    const result = await this.repository.searchBlocks(c, input, userId);
     return {
       blocks: result.blocks,
       total: result.total,
@@ -93,10 +97,12 @@ export class SearchService {
   }
 
   private async searchFieldsInTerminalBlocks(
+    c: AppContext,
     input: SearchRequestDto,
     userId: string
   ): Promise<{ fieldMatches: SearchFieldMatchRecord[]; total: number }> {
     const result = await this.repository.searchFieldsInTerminalBlocks(
+      c,
       input,
       userId
     );
@@ -107,12 +113,15 @@ export class SearchService {
   }
 
   private async combineSearchResults(
+    c: AppContext,
     blockResults: SearchRecord[],
     fieldMatches: SearchFieldMatchRecord[],
     input: SearchRequestDto,
     userId: string
   ): Promise<SearchBlockResultDto[]> {
-    this.logger.info(
+    const logger = getLogger(c, 'search-service');
+
+    logger.info(
       {
         blockCount: blockResults.length,
         fieldMatchCount: fieldMatches.length,
@@ -123,15 +132,15 @@ export class SearchService {
     const resultMap = new Map<string, SearchBlockResultDto>();
 
     // Process direct block matches
-    await this.processBlockMatches(blockResults, input, userId, resultMap);
+    await this.processBlockMatches(c, blockResults, input, userId, resultMap);
 
     // Process field matches
-    await this.processFieldMatches(fieldMatches, userId, resultMap);
+    await this.processFieldMatches(c, fieldMatches, userId, resultMap);
 
     const combinedResults = Array.from(resultMap.values());
     this.sortResultsByRelevance(combinedResults);
 
-    this.logger.info(
+    logger.info(
       { combinedCount: combinedResults.length },
       'Search results combined and sorted'
     );
@@ -140,13 +149,14 @@ export class SearchService {
   }
 
   private async processBlockMatches(
+    c: AppContext,
     blockResults: SearchRecord[],
     input: SearchRequestDto,
     userId: string,
     resultMap: Map<string, SearchBlockResultDto>
   ): Promise<void> {
     const blockPromises = blockResults.map(async (block) => {
-      const breadcrumbs = await this.repository.getBreadcrumbs(block.id);
+      const breadcrumbs = await this.repository.getBreadcrumbs(c, block.id);
       const relativePath = this.generateRelativePath(breadcrumbs, block.name);
       const matchType = this.determineBlockMatchType(block, input.query);
 
@@ -158,7 +168,7 @@ export class SearchService {
         fields: undefined,
       };
 
-      await this.addFieldsToTerminalBlock(searchResult, userId);
+      await this.addFieldsToTerminalBlock(c, searchResult, userId);
       return { uuid: block.uuid, result: searchResult };
     });
 
@@ -170,6 +180,7 @@ export class SearchService {
   }
 
   private async processFieldMatches(
+    c: AppContext,
     fieldMatches: SearchFieldMatchRecord[],
     userId: string,
     resultMap: Map<string, SearchBlockResultDto>
@@ -181,6 +192,7 @@ export class SearchService {
       )
       .map(async (fieldMatch) => {
         const searchResult = await this.createFieldMatchResult(
+          c,
           fieldMatch,
           userId
         );
@@ -211,10 +223,12 @@ export class SearchService {
   }
 
   private async createFieldMatchResult(
+    c: AppContext,
     fieldMatch: SearchFieldMatchRecord,
     userId: string
   ): Promise<SearchBlockResultDto> {
     const breadcrumbs = await this.repository.getBreadcrumbs(
+      c,
       fieldMatch.blockId
     );
     const relativePath = this.generateRelativePath(
@@ -245,23 +259,27 @@ export class SearchService {
       fields: undefined,
     };
 
-    await this.addFieldsToTerminalBlock(searchResult, userId);
+    await this.addFieldsToTerminalBlock(c, searchResult, userId);
     return searchResult;
   }
 
   private async addFieldsToTerminalBlock(
+    c: AppContext,
     searchResult: SearchBlockResultDto,
     userId: string
   ): Promise<void> {
     if (searchResult.blockType === 'terminal') {
+      const logger = getLogger(c, 'search-service');
+
       try {
         const fields = await this.fieldService.getFieldsWithDecryptedPasswords(
+          c,
           searchResult.uuid,
           userId
         );
         searchResult.fields = fields;
       } catch (error) {
-        this.logger.warn(
+        logger.warn(
           {
             blockId: searchResult.uuid,
             error: error instanceof Error ? error.message : 'Unknown error',
@@ -318,3 +336,5 @@ export class SearchService {
     return 'block_name'; // Default fallback
   }
 }
+
+container.registerSingleton(SearchService);

@@ -5,12 +5,12 @@ import { inject, injectable } from 'tsyringe';
 import { corsMiddleware } from './lib/cors-middleware';
 import { errorHandler, notFoundHandler } from './lib/error-handler';
 import { requestLogger } from './lib/logger';
-import AuthRoute from './modules/auth/route.di';
-import BlockRoute from './modules/block/route.di';
-import DataTransferRoute from './modules/data-transfer/route.di';
-import FieldRoute from './modules/field/route.di';
-import SearchRoute from './modules/search/route.di';
-import SystemRoute from './modules/system/route.di';
+import AuthRoute from './modules/auth/route';
+import BlockRoute from './modules/block/route';
+import DataTransferRoute from './modules/data-transfer/route';
+import FieldRoute from './modules/field/route';
+import SearchRoute from './modules/search/route';
+import SystemRoute from './modules/system/route';
 import type { AppHono } from './types';
 
 @injectable()

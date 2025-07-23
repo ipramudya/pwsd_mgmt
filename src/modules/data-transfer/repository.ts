@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { createDatabase, type Database } from '../../lib/database';
+import { container, injectable } from 'tsyringe';
+import { createDatabase } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import {
@@ -20,21 +21,17 @@ import type {
   FieldRecord,
 } from '../field/dto';
 
-export class DataTransferRepository {
-  private db: Database;
-  private logger: ReturnType<typeof getLogger>;
+@injectable()
+export default class DataTransferRepository {
+  async getAllUserData(c: AppContext, userUuid: string) {
+    const logger = getLogger(c, 'block-repository');
+    const db = createDatabase(c);
 
-  constructor(c: AppContext) {
-    this.db = createDatabase(c);
-    this.logger = getLogger(c, 'data-transfer-repository');
-  }
-
-  async getAllUserData(userUuid: string) {
     try {
-      this.logger.info({ userUuid }, 'Fetching all user data for export');
+      logger.info({ userUuid }, 'Fetching all user data for export');
 
       // Get user info
-      const user = await this.db
+      const user = await db
         .select({
           uuid: accounts.uuid,
           username: accounts.username,
@@ -48,13 +45,13 @@ export class DataTransferRepository {
       }
 
       // Get all user's blocks
-      const userBlocks = await this.db
+      const userBlocks = await db
         .select()
         .from(blocks)
         .where(eq(blocks.createdById, userUuid));
 
       // Get all user's fields with their type-specific data
-      const userFields = await this.db
+      const userFields = await db
         .select({
           field: fields,
           textField: textFields,
@@ -67,7 +64,7 @@ export class DataTransferRepository {
         .leftJoin(todoFields, eq(fields.uuid, todoFields.fieldId))
         .where(eq(fields.createdById, userUuid));
 
-      this.logger.info(
+      logger.info(
         {
           userUuid,
           blocksCount: userBlocks.length,
@@ -82,7 +79,7 @@ export class DataTransferRepository {
         fields: userFields,
       };
     } catch (error) {
-      this.logger.error(
+      logger.error(
         {
           userUuid,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -95,11 +92,14 @@ export class DataTransferRepository {
     }
   }
 
-  async clearAllUserData(userUuid: string): Promise<void> {
-    try {
-      this.logger.info({ userUuid }, 'Clearing all user data');
+  async clearAllUserData(c: AppContext, userUuid: string): Promise<void> {
+    const logger = getLogger(c, 'data-transfer-repository');
+    const db = createDatabase(c);
 
-      await this.db.transaction(async (tx) => {
+    try {
+      logger.info({ userUuid }, 'Clearing all user data');
+
+      await db.transaction(async (tx) => {
         // Get all user's field UUIDs first
         const userFieldUuids = await tx
           .select({ uuid: fields.uuid })
@@ -132,9 +132,9 @@ export class DataTransferRepository {
         await tx.delete(blocks).where(eq(blocks.createdById, userUuid));
       });
 
-      this.logger.info({ userUuid }, 'Successfully cleared all user data');
+      logger.info({ userUuid }, 'Successfully cleared all user data');
     } catch (error) {
-      this.logger.error(
+      logger.error(
         {
           userUuid,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -146,6 +146,7 @@ export class DataTransferRepository {
   }
 
   async batchImportData(
+    c: AppContext,
     blocksToCreate: CreateBlockInput[],
     fieldsToCreate: CreateFieldInput[],
     textFieldsToCreate: CreateTextFieldInput[],
@@ -155,8 +156,11 @@ export class DataTransferRepository {
     createdBlocks: BlockRecord[];
     createdFields: FieldRecord[];
   }> {
+    const logger = getLogger(c, 'data-transfer-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info(
+      logger.info(
         {
           blocksCount: blocksToCreate.length,
           fieldsCount: fieldsToCreate.length,
@@ -167,7 +171,7 @@ export class DataTransferRepository {
         'Starting batch import'
       );
 
-      return await this.db.transaction(async (tx) => {
+      return await db.transaction(async (tx) => {
         // Create blocks and fields in batch
         const [createdBlocksResults, createdFieldsResults] = await Promise.all([
           blocksToCreate.length > 0
@@ -194,7 +198,7 @@ export class DataTransferRepository {
             : Promise.resolve(),
         ]);
 
-        this.logger.info(
+        logger.info(
           {
             createdBlocksCount: createdBlocks.length,
             createdFieldsCount: createdFields.length,
@@ -205,7 +209,7 @@ export class DataTransferRepository {
         return { createdBlocks, createdFields };
       });
     } catch (error) {
-      this.logger.error(
+      logger.error(
         {
           error: error instanceof Error ? error.message : 'Unknown error',
           blocksCount: blocksToCreate.length,
@@ -217,9 +221,12 @@ export class DataTransferRepository {
     }
   }
 
-  async blockExists(blockUuid: string): Promise<boolean> {
+  async blockExists(c: AppContext, blockUuid: string): Promise<boolean> {
+    const logger = getLogger(c, 'data-transfer-repository');
+    const db = createDatabase(c);
+
     try {
-      const result = await this.db
+      const result = await db
         .select({ uuid: blocks.uuid })
         .from(blocks)
         .where(eq(blocks.uuid, blockUuid))
@@ -227,7 +234,7 @@ export class DataTransferRepository {
 
       return !!result;
     } catch (error) {
-      this.logger.error(
+      logger.error(
         {
           blockUuid,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -238,3 +245,5 @@ export class DataTransferRepository {
     }
   }
 }
+
+container.registerSingleton(DataTransferRepository);

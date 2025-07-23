@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { delay, inject, injectable } from 'tsyringe';
 import { NotFoundError, ValidationError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import type { AppContext } from '../../types';
-import { FieldService } from '../field/service';
+import FieldService from '../field/service';
 import { validateBlockTypeForChildren } from './block-type';
 import type {
   BlockDto,
@@ -17,34 +18,30 @@ import type {
   RecentBlocksRequestDto,
   RecentBlocksResponseDto,
 } from './dto';
-import { BlockRepository } from './repository';
+import BlockRepository from './repository';
 
-export class BlockService {
-  private repository: BlockRepository;
-  private fieldService: FieldService;
-  private logger: ReturnType<typeof getLogger>;
-
-  constructor(c: AppContext) {
-    this.repository = new BlockRepository(c);
-    this.fieldService = new FieldService(c);
-    this.logger = getLogger(c, 'block-service');
-  }
+@injectable()
+export default class BlockService {
+  constructor(
+    @inject(BlockRepository)
+    private readonly repository: BlockRepository,
+    @inject(delay(() => FieldService))
+    private readonly fieldService: FieldService
+  ) {}
 
   async createBlock(
+    c: AppContext,
     input: CreateBlockRequestDto,
     createdById: string
   ): Promise<CreateBlockResponseDto> {
-    this.logger.info(
-      { name: input.name, createdById, parentId: input.parentId },
-      'Attempting to create block'
-    );
+    const logger = getLogger(c, 'block-service');
 
     let parentBlock: BlockRecord | null = null;
 
     if (input.parentId) {
-      parentBlock = await this.repository.findBlockByUuid(input.parentId);
+      parentBlock = await this.repository.findBlockByUuid(c, input.parentId);
       if (!parentBlock) {
-        this.logger.warn(
+        logger.warn(
           { parentId: input.parentId },
           'Block creation failed: parent block not found'
         );
@@ -52,7 +49,7 @@ export class BlockService {
       }
 
       if (parentBlock.createdById !== createdById) {
-        this.logger.warn(
+        logger.warn(
           {
             parentId: input.parentId,
             createdById,
@@ -70,7 +67,7 @@ export class BlockService {
       try {
         validateBlockTypeForChildren(parentBlock.blockType);
       } catch {
-        this.logger.warn(
+        logger.warn(
           { parentId: input.parentId, parentBlockType: parentBlock.blockType },
           'Block creation failed: cannot add child blocks to terminal blocks'
         );
@@ -78,7 +75,7 @@ export class BlockService {
       }
     }
 
-    const createdBlock = await this.repository.createBlock({
+    const createdBlock = await this.repository.createBlock(c, {
       uuid: blockUuid,
       name: input.name,
       description: input.description,
@@ -92,19 +89,19 @@ export class BlockService {
 
     if (parentBlock) {
       const correctPath = `${parentBlock.path}${createdBlock.id}/`;
-      await this.repository.updateBlock({
+      await this.repository.updateBlock(c, {
         uuid: blockUuid,
         name: input.name,
         description: input.description,
       });
 
-      await this.repository.moveBlock({
+      await this.repository.moveBlock(c, {
         uuid: blockUuid,
         newPath: correctPath,
         newParentId: parentBlock.id,
       });
 
-      const updatedBlock = await this.repository.findBlockByUuid(blockUuid);
+      const updatedBlock = await this.repository.findBlockByUuid(c, blockUuid);
       if (!updatedBlock) {
         throw new Error('Failed to retrieve updated block');
       }
@@ -113,7 +110,7 @@ export class BlockService {
       };
     }
 
-    this.logger.info(
+    logger.info(
       { blockUuid, name: input.name, createdById },
       'Block created successfully'
     );
@@ -124,10 +121,13 @@ export class BlockService {
   }
 
   async getBlocks(
+    c: AppContext,
     input: GetBlocksRequestDto,
     createdById: string
   ): Promise<GetBlocksResponseDto> {
-    this.logger.info(
+    const logger = getLogger(c, 'block-service');
+
+    logger.info(
       {
         createdById,
         limit: input.limit,
@@ -141,7 +141,10 @@ export class BlockService {
     let parentPath = '/';
 
     if (input.parentId) {
-      const parentBlock = await this.repository.findBlockByUuid(input.parentId);
+      const parentBlock = await this.repository.findBlockByUuid(
+        c,
+        input.parentId
+      );
       if (!parentBlock) {
         throw new NotFoundError('Parent block not found');
       }
@@ -160,7 +163,7 @@ export class BlockService {
       createdById,
     };
 
-    const result = await this.repository.getBlocks(query);
+    const result = await this.repository.getBlocks(c, query);
 
     // Transform blocks and include fields for terminal blocks
     const transformedBlocks = await Promise.all(
@@ -172,13 +175,14 @@ export class BlockService {
           try {
             const fields =
               await this.fieldService.getFieldsWithDecryptedPasswords(
+                c,
                 block.uuid,
                 createdById
               );
             blockDto.fields = fields;
           } catch (error) {
             // If there's an error getting fields, log it but don't fail the whole request
-            this.logger.warn(
+            logger.warn(
               {
                 blockId: block.uuid,
                 error: error instanceof Error ? error.message : 'Unknown error',
@@ -193,7 +197,7 @@ export class BlockService {
       })
     );
 
-    this.logger.info(
+    logger.info(
       {
         createdById,
         foundBlocks: transformedBlocks.length,
@@ -212,15 +216,15 @@ export class BlockService {
   }
 
   async getBreadcrumbs(
+    c: AppContext,
     input: GetBreadcrumbsRequestDto,
     createdById: string
   ): Promise<GetBreadcrumbsResponseDto> {
-    this.logger.info(
-      { blockId: input.blockId, createdById },
-      'Getting breadcrumbs'
-    );
+    const logger = getLogger(c, 'block-service');
 
-    const block = await this.repository.findBlockByUuid(input.blockId);
+    logger.info({ blockId: input.blockId, createdById }, 'Getting breadcrumbs');
+
+    const block = await this.repository.findBlockByUuid(c, input.blockId);
     if (!block) {
       throw new NotFoundError('Block not found');
     }
@@ -229,9 +233,9 @@ export class BlockService {
       throw new NotFoundError('Block not found');
     }
 
-    const breadcrumbs = await this.repository.getBreadcrumbs(input.blockId);
+    const breadcrumbs = await this.repository.getBreadcrumbs(c, input.blockId);
 
-    this.logger.info(
+    logger.info(
       { blockId: input.blockId, breadcrumbCount: breadcrumbs.length },
       'Breadcrumbs retrieved successfully'
     );
@@ -240,24 +244,27 @@ export class BlockService {
   }
 
   async updateBlock(
+    c: AppContext,
     uuid: string,
     input: Partial<CreateBlockRequestDto>,
     createdById: string
   ): Promise<CreateBlockResponseDto> {
-    this.logger.info({ uuid, createdById }, 'Updating block');
+    const logger = getLogger(c, 'block-service');
 
-    const existingBlock = await this.repository.findBlockByUuid(uuid);
+    logger.info({ uuid, createdById }, 'Updating block');
+
+    const existingBlock = await this.repository.findBlockByUuid(c, uuid);
     if (!existingBlock || existingBlock.createdById !== createdById) {
       throw new NotFoundError('Block not found');
     }
 
-    const updatedBlock = await this.repository.updateBlock({
+    const updatedBlock = await this.repository.updateBlock(c, {
       uuid,
       name: input.name,
       description: input.description,
     });
 
-    this.logger.info({ uuid }, 'Block updated successfully');
+    logger.info({ uuid }, 'Block updated successfully');
 
     return {
       block: this.toBlockDto(updatedBlock),
@@ -265,16 +272,16 @@ export class BlockService {
   }
 
   async moveBlock(
+    c: AppContext,
     uuid: string,
     input: MoveBlockRequestDto,
     createdById: string
   ): Promise<void> {
-    this.logger.info(
-      { uuid, targetParentId: input.targetParentId },
-      'Moving block'
-    );
+    const logger = getLogger(c, 'block-service');
 
-    const blockToMove = await this.repository.findBlockByUuid(uuid);
+    logger.info({ uuid, targetParentId: input.targetParentId }, 'Moving block');
+
+    const blockToMove = await this.repository.findBlockByUuid(c, uuid);
     if (!blockToMove || blockToMove.createdById !== createdById) {
       throw new NotFoundError('Block not found');
     }
@@ -284,6 +291,7 @@ export class BlockService {
 
     if (input.targetParentId) {
       const targetParent = await this.repository.findBlockByUuid(
+        c,
         input.targetParentId
       );
       if (!targetParent || targetParent.createdById !== createdById) {
@@ -300,23 +308,26 @@ export class BlockService {
       newPath = `/${blockToMove.id}/`;
     }
 
-    await this.repository.moveBlock({
+    await this.repository.moveBlock(c, {
       uuid,
       newPath,
       newParentId,
     });
 
-    this.logger.info({ uuid }, 'Block moved successfully');
+    logger.info({ uuid }, 'Block moved successfully');
   }
 
   async deleteBlock(
+    c: AppContext,
     uuid: string,
     createdById: string,
     confirmationName: string
   ): Promise<void> {
-    this.logger.info({ uuid, createdById }, 'Deleting block');
+    const logger = getLogger(c, 'block-service');
 
-    const block = await this.repository.findBlockByUuid(uuid);
+    logger.info({ uuid, createdById }, 'Deleting block');
+
+    const block = await this.repository.findBlockByUuid(c, uuid);
     if (!block || block.createdById !== createdById) {
       throw new NotFoundError('Block not found');
     }
@@ -325,22 +336,22 @@ export class BlockService {
       throw new ValidationError('Block name confirmation does not match');
     }
 
-    await this.repository.deleteBlock(uuid);
+    await this.repository.deleteBlock(c, uuid);
 
-    this.logger.info({ uuid }, 'Block deleted successfully');
+    logger.info({ uuid }, 'Block deleted successfully');
   }
 
   async getRecentBlocks(
+    c: AppContext,
     input: RecentBlocksRequestDto,
     createdById: string
   ): Promise<RecentBlocksResponseDto> {
-    this.logger.info(
-      { days: input.days, createdById },
-      'Getting recent blocks'
-    );
+    const logger = getLogger(c, 'block-service');
+
+    logger.info({ days: input.days, createdById }, 'Getting recent blocks');
 
     const days = input.days || 7;
-    const recentBlocks = await this.repository.getRecentBlocks({
+    const recentBlocks = await this.repository.getRecentBlocks(c, {
       days,
       createdById,
     });
@@ -352,12 +363,13 @@ export class BlockService {
           try {
             const fields =
               await this.fieldService.getFieldsWithDecryptedPasswords(
+                c,
                 block.uuid,
                 createdById
               );
             blockDto.fields = fields;
           } catch (error) {
-            this.logger.warn(
+            logger.warn(
               { blockUuid: block.uuid, error },
               'Failed to load fields for terminal block in recent results'
             );
@@ -368,7 +380,7 @@ export class BlockService {
       })
     );
 
-    this.logger.info(
+    logger.info(
       { days, foundBlocks: blocksWithFields.length },
       'Recent blocks retrieved successfully'
     );
@@ -381,16 +393,19 @@ export class BlockService {
   }
 
   async getRecentUpdatedBlocks(
+    c: AppContext,
     input: RecentBlocksRequestDto,
     createdById: string
   ): Promise<RecentBlocksResponseDto> {
-    this.logger.info(
+    const logger = getLogger(c, 'block-service');
+
+    logger.info(
       { days: input.days, createdById },
       'Getting recent updated blocks'
     );
 
     const days = input.days || 7;
-    const recentBlocks = await this.repository.getRecentUpdatedBlocks({
+    const recentBlocks = await this.repository.getRecentUpdatedBlocks(c, {
       days,
       createdById,
     });
@@ -402,12 +417,13 @@ export class BlockService {
           try {
             const fields =
               await this.fieldService.getFieldsWithDecryptedPasswords(
+                c,
                 block.uuid,
                 createdById
               );
             blockDto.fields = fields;
           } catch (error) {
-            this.logger.warn(
+            logger.warn(
               { blockUuid: block.uuid, error },
               'Failed to load fields for terminal block in recent updated results'
             );
@@ -418,7 +434,7 @@ export class BlockService {
       })
     );
 
-    this.logger.info(
+    logger.info(
       { days, foundBlocks: blocksWithFields.length },
       'Recent updated blocks retrieved successfully'
     );

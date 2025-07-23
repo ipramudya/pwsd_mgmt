@@ -1,23 +1,24 @@
+import { container, inject, injectable } from 'tsyringe';
 import { getLogger } from '../../lib/logger';
 import type { AppContext } from '../../types';
-import type { SystemHealthInfo } from './repository';
-import { SystemRepository } from './repository';
+import type { SystemHealthInfo } from './dto';
+import SystemRepository from './repository';
 
-export class SystemService {
-  private repository: SystemRepository;
-  private logger: ReturnType<typeof getLogger>;
-  private startTime: number;
+@injectable()
+export default class SystemService {
+  private readonly startTime: number;
 
-  constructor(c: AppContext) {
-    this.repository = new SystemRepository(c);
-    this.logger = getLogger(c, 'system-service');
+  constructor(
+    @inject(SystemRepository)
+    private readonly repository: SystemRepository
+  ) {
     this.startTime = Date.now();
   }
 
-  async getHealthCheck(): Promise<SystemHealthInfo> {
-    this.logger.info('Performing system health check');
+  getHealthCheck(c: AppContext): SystemHealthInfo {
+    const logger = getLogger(c, 'system-service');
 
-    const databaseHealth = await this.repository.checkDatabaseHealth();
+    const databaseHealth = this.repository.checkDatabaseHealth(c);
 
     // Determine overall system status
     let status: SystemHealthInfo['status'] = 'healthy';
@@ -38,7 +39,7 @@ export class SystemService {
       environment: 'production', // This could be read from env
     };
 
-    this.logger.info(
+    logger.info(
       {
         status: healthInfo.status,
         databaseStatus: databaseHealth.status,
@@ -50,13 +51,13 @@ export class SystemService {
     return healthInfo;
   }
 
-  async getDetailedHealthCheck(): Promise<SystemHealthInfo> {
-    this.logger.info('Performing detailed system health check');
+  async getDetailedHealthCheck(c: AppContext): Promise<SystemHealthInfo> {
+    const logger = getLogger(c, 'system-service');
 
-    const [databaseHealth, databaseStats] = await Promise.all([
-      this.repository.checkDatabaseHealth(),
-      this.repository.getDatabaseStats(),
-    ]);
+    logger.info('Performing detailed system health check');
+
+    const databaseHealth = this.repository.checkDatabaseHealth(c);
+    const databaseStats = await this.repository.getDatabaseStats(c);
 
     // Determine overall system status
     let status: SystemHealthInfo['status'] = 'healthy';
@@ -85,7 +86,7 @@ export class SystemService {
       environment: 'production', // This could be read from env
     };
 
-    this.logger.info(
+    logger.info(
       {
         status: detailedHealthInfo.status,
         databaseStatus: databaseHealth.status,
@@ -101,3 +102,5 @@ export class SystemService {
     return detailedHealthInfo;
   }
 }
+
+container.registerSingleton(SystemService);

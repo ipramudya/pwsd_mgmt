@@ -1,37 +1,34 @@
 import { eq, sql } from 'drizzle-orm';
-import { createDatabase, type Database } from '../../lib/database';
+import { container, injectable } from 'tsyringe';
+import { createDatabase } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
 import { accounts } from '../../lib/schemas';
 import type { AppContext } from '../../types';
 import type { AccountRecord, CreateAccountInput } from './dto';
 
-export class AuthRepository {
-  private db: Database;
-  private logger: ReturnType<typeof getLogger>;
+@injectable()
+export default class AuthRepository {
+  async createAccount(c: AppContext, input: CreateAccountInput): Promise<void> {
+    const logger = getLogger(c, 'auth-repository');
+    const db = createDatabase(c);
 
-  constructor(c: AppContext) {
-    this.db = createDatabase(c);
-    this.logger = getLogger(c, 'auth-repository');
-  }
-
-  async createAccount(input: CreateAccountInput): Promise<void> {
     try {
-      this.logger.info(
+      logger.info(
         { uuid: input.uuid, username: input.username },
         'Creating account'
       );
-      await this.db.insert(accounts).values({
+      await db.insert(accounts).values({
         uuid: input.uuid,
         username: input.username,
         password: input.password,
       });
-      this.logger.info(
+      logger.info(
         { uuid: input.uuid, username: input.username },
         'Account created successfully'
       );
     } catch (error) {
-      this.logger.error(
+      logger.error(
         { uuid: input.uuid, username: input.username, error },
         'Failed to create account'
       );
@@ -39,21 +36,27 @@ export class AuthRepository {
     }
   }
 
-  async findAccountByUsername(username: string): Promise<AccountRecord | null> {
+  async findAccountByUsername(
+    c: AppContext,
+    username: string
+  ): Promise<AccountRecord | null> {
+    const logger = getLogger(c, 'auth-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info({ username }, 'Finding account by username');
-      const [account] = await this.db
+      logger.info({ username }, 'Finding account by username');
+      const [account] = await db
         .select()
         .from(accounts)
         .where(eq(accounts.username, username))
         .limit(1);
 
       if (!account) {
-        this.logger.info({ username }, 'Account not found by username');
+        logger.info({ username }, 'Account not found by username');
         return null;
       }
 
-      this.logger.info(
+      logger.info(
         { username, uuid: account.uuid },
         'Account found by username'
       );
@@ -67,29 +70,56 @@ export class AuthRepository {
         lastLoginAt: new Date(Number(account.lastLoginAt) * 1000),
       };
     } catch (error) {
-      this.logger.error(
-        { username, error },
-        'Failed to find account by username'
-      );
+      logger.error({ username, error }, 'Failed to find account by username');
       throw new DatabaseError('Failed to find account by username', { error });
     }
   }
 
-  async findAccountByUuid(uuid: string): Promise<AccountRecord | null> {
+  async usernameExists(c: AppContext, username: string): Promise<boolean> {
+    const logger = getLogger(c, 'auth-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info({ uuid }, 'Finding account by uuid');
-      const [account] = await this.db
+      logger.info({ username }, 'Checking if username exists');
+      const [exists] = await db
+        .select({ count: accounts.id })
+        .from(accounts)
+        .where(eq(accounts.username, username))
+        .limit(1);
+
+      const usernameExists = !!exists;
+      logger.info(
+        { username, exists: usernameExists },
+        'Username existence check completed'
+      );
+      return usernameExists;
+    } catch (error) {
+      logger.error({ username, error }, 'Failed to check if username exists');
+      throw new DatabaseError('Failed to check if username exists', { error });
+    }
+  }
+
+  async findAccountByUuid(
+    c: AppContext,
+    uuid: string
+  ): Promise<AccountRecord | null> {
+    const logger = getLogger(c, 'auth-repository');
+    const db = createDatabase(c);
+
+    try {
+      logger.info({ uuid }, 'Finding account by uuid');
+      const [account] = await db
         .select()
         .from(accounts)
         .where(eq(accounts.uuid, uuid))
         .limit(1);
 
       if (!account) {
-        this.logger.info({ uuid }, 'Account not found by uuid');
+        logger.info({ uuid }, 'Account not found by uuid');
         return null;
       }
 
-      this.logger.info(
+      logger.info(
         { uuid, username: account.username },
         'Account found by uuid'
       );
@@ -103,49 +133,30 @@ export class AuthRepository {
         lastLoginAt: new Date(Number(account.lastLoginAt) * 1000),
       };
     } catch (error) {
-      this.logger.error({ uuid, error }, 'Failed to find account by uuid');
+      logger.error({ uuid, error }, 'Failed to find account by uuid');
       throw new DatabaseError('Failed to find account by uuid', { error });
     }
   }
 
-  async updateLastLogin(uuid: string): Promise<void> {
+  async updateLastLogin(c: AppContext, uuid: string): Promise<void> {
+    const logger = getLogger(c, 'auth-repository');
+    const db = createDatabase(c);
+
     try {
-      this.logger.info({ uuid }, 'Updating last login');
-      await this.db
+      logger.info({ uuid }, 'Updating last login');
+      await db
         .update(accounts)
         .set({
           lastLoginAt: sql`(unixepoch())`,
           updatedAt: sql`(unixepoch())`,
         })
         .where(eq(accounts.uuid, uuid));
-      this.logger.info({ uuid }, 'Last login updated successfully');
+      logger.info({ uuid }, 'Last login updated successfully');
     } catch (error) {
-      this.logger.error({ uuid, error }, 'Failed to update last login');
+      logger.error({ uuid, error }, 'Failed to update last login');
       throw new DatabaseError('Failed to update last login', { error });
     }
   }
-
-  async usernameExists(username: string): Promise<boolean> {
-    try {
-      this.logger.info({ username }, 'Checking if username exists');
-      const [exists] = await this.db
-        .select({ count: accounts.id })
-        .from(accounts)
-        .where(eq(accounts.username, username))
-        .limit(1);
-
-      const usernameExists = !!exists;
-      this.logger.info(
-        { username, exists: usernameExists },
-        'Username existence check completed'
-      );
-      return usernameExists;
-    } catch (error) {
-      this.logger.error(
-        { username, error },
-        'Failed to check if username exists'
-      );
-      throw new DatabaseError('Failed to check if username exists', { error });
-    }
-  }
 }
+
+container.registerSingleton(AuthRepository);
