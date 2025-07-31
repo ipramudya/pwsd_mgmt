@@ -23,6 +23,7 @@ export default class BlockRoute {
     this.useGetBlocksRoute();
     this.useGetRecentBlocksRoute();
     this.useGetRecentUpdatedBlocksRoute();
+    this.useGetBlockDetailRoute();
     this.useGetBlockChildrenRoute();
     this.useGetBreadcrumbsRoute();
     this.useUpdateBlockRoute();
@@ -60,6 +61,24 @@ export default class BlockRoute {
           success: true,
           data: result,
           message: 'Blocks and fields retrieved successfully',
+        },
+        200
+      );
+    });
+  }
+
+  private useGetBlockDetailRoute() {
+    this.route.get('/:id/detail', async (c) => {
+      const blockId = c.req.param('id');
+      const userId = c.get('userId') as string;
+
+      const result = await this.blockService.getBlockDetail(c, blockId, userId);
+
+      return c.json(
+        {
+          success: true,
+          data: result,
+          message: 'Block details retrieved successfully',
         },
         200
       );

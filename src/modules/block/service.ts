@@ -80,35 +80,12 @@ export default class BlockService {
       name: input.name,
       description: input.description,
       path: parentBlock
-        ? `${parentBlock.path}${parentBlock.id}/`
+        ? `${parentBlock.path}${parentBlock.id}/${blockUuid}/`
         : `/${Date.now()}/`,
       blockType: input.blockType,
       createdById,
       parentId: parentBlock?.id,
     });
-
-    if (parentBlock) {
-      const correctPath = `${parentBlock.path}${createdBlock.id}/`;
-      await this.repository.updateBlock(c, {
-        uuid: blockUuid,
-        name: input.name,
-        description: input.description,
-      });
-
-      await this.repository.moveBlock(c, {
-        uuid: blockUuid,
-        newPath: correctPath,
-        newParentId: parentBlock.id,
-      });
-
-      const updatedBlock = await this.repository.findBlockByUuid(c, blockUuid);
-      if (!updatedBlock) {
-        throw new Error('Failed to retrieve updated block');
-      }
-      return {
-        block: this.toBlockDto(updatedBlock),
-      };
-    }
 
     logger.info(
       { blockUuid, name: input.name, createdById },
@@ -213,6 +190,52 @@ export default class BlockService {
       hasNext: !!result.nextCursor,
       total: result.total,
     };
+  }
+
+  async getBlockDetail(
+    c: AppContext,
+    blockId: string,
+    createdById: string
+  ): Promise<{ block: BlockDto }> {
+    const logger = getLogger(c, 'block-service');
+
+    logger.info({ blockId, createdById }, 'Getting block detail');
+
+    const block = await this.repository.findBlockByUuid(c, blockId);
+    if (!block) {
+      throw new NotFoundError('Block not found');
+    }
+
+    if (block.createdById !== createdById) {
+      throw new NotFoundError('Block not found');
+    }
+
+    const blockDto = this.toBlockDto(block);
+
+    // If it's a terminal block, include its fields
+    if (block.blockType === 'terminal') {
+      try {
+        const fields = await this.fieldService.getFieldsWithDecryptedPasswords(
+          c,
+          block.uuid,
+          createdById
+        );
+        blockDto.fields = fields;
+      } catch (error) {
+        logger.warn(
+          {
+            blockId: block.uuid,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
+          'Failed to retrieve fields for terminal block'
+        );
+        blockDto.fields = [];
+      }
+    }
+
+    logger.info({ blockId }, 'Block detail retrieved successfully');
+
+    return { block: blockDto };
   }
 
   async getBreadcrumbs(

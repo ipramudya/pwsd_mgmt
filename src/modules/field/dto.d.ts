@@ -163,6 +163,8 @@ export type UpdateTodoFieldDataDto = {
 
 export type UpdateFieldRequestDto = {
   fieldId: string;
+  name?: string;
+  type?: FieldType;
   data:
     | UpdateTextFieldDataDto
     | UpdatePasswordFieldDataDto

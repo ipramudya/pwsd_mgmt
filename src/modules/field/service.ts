@@ -400,38 +400,115 @@ export default class FieldService {
         {
           fieldId: field.uuid,
           fieldType: field.type,
+          newName: fieldUpdate.name,
+          newType: fieldUpdate.type,
         },
-        'Updating field data'
+        'Updating field'
       );
 
-      // Update the field data based on type
-      switch (field.type) {
-        case 'text': {
-          const data = fieldUpdate.data as { text: string };
-          await this.repository.updateTextFieldData(c, field.uuid, data.text);
-          break;
+      // Check if type is changing
+      const isTypeChanging = fieldUpdate.type && fieldUpdate.type !== field.type;
+      const targetType = fieldUpdate.type || field.type;
+
+      if (isTypeChanging) {
+        logger.info(
+          {
+            fieldId: field.uuid,
+            oldType: field.type,
+            newType: fieldUpdate.type,
+          },
+          'Field type is changing - will delete old data and create new data'
+        );
+
+        // Delete old type-specific data
+        switch (field.type) {
+          case 'text':
+            await this.repository.deleteTextFieldData(c, field.uuid);
+            break;
+          case 'password':
+            await this.repository.deletePasswordFieldData(c, field.uuid);
+            break;
+          case 'todo':
+            await this.repository.deleteTodoFieldData(c, field.uuid);
+            break;
         }
-        case 'password': {
-          const data = fieldUpdate.data as { password: string };
-          const encryptedPassword = encryptPasswordForStorage(data.password);
-          await this.repository.updatePasswordFieldData(
-            c,
-            field.uuid,
-            encryptedPassword
-          );
-          break;
+      }
+
+      // Update field metadata (name and/or type) if provided
+      const metadataUpdates: { name?: string; type?: string } = {};
+      if (fieldUpdate.name !== undefined) {
+        metadataUpdates.name = fieldUpdate.name;
+      }
+      if (fieldUpdate.type !== undefined) {
+        metadataUpdates.type = fieldUpdate.type;
+      }
+
+      if (Object.keys(metadataUpdates).length > 0) {
+        await this.repository.updateFieldMetadata(c, field.uuid, metadataUpdates);
+      }
+
+      // Update or create field data based on target type
+      if (isTypeChanging) {
+        // Create new type-specific data with new data
+        switch (targetType) {
+          case 'text': {
+            const data = fieldUpdate.data as { text: string };
+            await this.repository.createTextFieldData(c, {
+              text: data.text,
+              fieldId: field.uuid,
+            });
+            break;
+          }
+          case 'password': {
+            const data = fieldUpdate.data as { password: string };
+            const encryptedPassword = encryptPasswordForStorage(data.password);
+            await this.repository.createPasswordFieldData(c, {
+              password: encryptedPassword,
+              fieldId: field.uuid,
+            });
+            break;
+          }
+          case 'todo': {
+            const data = fieldUpdate.data as { isChecked: boolean };
+            await this.repository.createTodoFieldData(c, {
+              isChecked: data.isChecked,
+              fieldId: field.uuid,
+            });
+            break;
+          }
+          default:
+            throw new ValidationError(`Unsupported field type: ${targetType}`);
         }
-        case 'todo': {
-          const data = fieldUpdate.data as { isChecked: boolean };
-          await this.repository.updateTodoFieldData(
-            c,
-            field.uuid,
-            data.isChecked
-          );
-          break;
+      } else {
+        // Update existing field data (no type change)
+        switch (targetType) {
+          case 'text': {
+            const data = fieldUpdate.data as { text: string };
+            await this.repository.updateTextFieldData(c, field.uuid, data.text);
+            break;
+          }
+          case 'password': {
+            const data = fieldUpdate.data as { password: string };
+            const encryptedPassword = encryptPasswordForStorage(data.password);
+            await this.repository.updatePasswordFieldData(
+              c,
+              field.uuid,
+              encryptedPassword
+            );
+            break;
+          }
+          case 'todo': {
+            const data = fieldUpdate.data as { isChecked: boolean };
+            await this.repository.updateTodoFieldData(
+              c,
+              field.uuid,
+              data.isChecked
+            );
+            break;
+          }
+          default:
+            throw new ValidationError(`Unsupported field type: ${targetType}`);
         }
-        default:
-          throw new ValidationError(`Unsupported field type: ${field.type}`);
       }
 
       // Return the updated field with its data

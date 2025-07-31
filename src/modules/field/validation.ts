@@ -100,6 +100,21 @@ const createFields = z
 
 const updateField = z.object({
   fieldId: z.string().uuid('Field ID must be a valid UUID'),
+  name: z
+    .string()
+    .min(FIELD_NAME_MIN_LENGTH, 'Field name is required')
+    .max(
+      FIELD_NAME_MAX_LENGTH,
+      `Field name must not exceed ${FIELD_NAME_MAX_LENGTH} characters`
+    )
+    .trim()
+    .optional(),
+  type: z
+    .enum(['text', 'password', 'todo'], {
+      required_error: 'Field type is required',
+      invalid_type_error: 'Field type must be "text", "password", or "todo"',
+    })
+    .optional(),
   data: z.union([textFieldData, passwordFieldData, todoFieldData]),
 });
 

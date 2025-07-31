@@ -446,6 +446,41 @@ export default class FieldRepository {
     }
   }
 
+  async updateFieldMetadata(
+    c: AppContext,
+    fieldId: string,
+    updates: { name?: string; type?: string }
+  ): Promise<void> {
+    const logger = getLogger(c, 'field-repository');
+    const db = createDatabase(c);
+
+    try {
+      logger.info({ fieldId, updates }, 'Updating field metadata');
+
+      const updateData: { name?: string; type?: string; updatedAt: Date } = {
+        updatedAt: new Date(),
+      };
+
+      if (updates.name !== undefined) {
+        updateData.name = updates.name;
+      }
+
+      if (updates.type !== undefined) {
+        updateData.type = updates.type;
+      }
+
+      await db
+        .update(fields)
+        .set(updateData)
+        .where(eq(fields.uuid, fieldId));
+
+      logger.info({ fieldId }, 'Field metadata updated successfully');
+    } catch (error) {
+      logger.error(error, 'Failed to update field metadata');
+      throw new DatabaseError('Failed to update field metadata');
+    }
+  }
+
   async deleteTextFieldData(c: AppContext, fieldId: string): Promise<void> {
     const logger = getLogger(c, 'field-repository');
     const db = createDatabase(c);

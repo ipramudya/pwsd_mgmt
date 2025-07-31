@@ -61,7 +61,7 @@ export default class SearchService {
     const hasNext = combinedResults.length > offset + limit;
     const nextCursor = hasNext ? String(offset + limit) : null;
 
-    const totalResults = blockSearchResult.total + fieldSearchResult.total;
+    const totalResults = combinedResults.length;
 
     logger.info(
       {

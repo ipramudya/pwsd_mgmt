@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, gt, gte, like, lt, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  like,
+  lt,
+  sql,
+} from 'drizzle-orm';
 import { container, injectable } from 'tsyringe';
 import { createDatabase } from '../../lib/database';
 import { DatabaseError } from '../../lib/error-handler';
@@ -316,12 +327,37 @@ export default class BlockRepository {
         throw new DatabaseError('Block not found for breadcrumbs');
       }
 
-      const pathSegments = block.path.split('/').filter(Boolean).map(Number);
+      // Extract parent IDs from path and include current block
+      // Filter out UUIDs and keep only numeric IDs
+      const rawSegments = block.path.split('/').filter(Boolean);
+      const pathSegments = rawSegments
+        .map(segment => {
+          const num = Number(segment);
+          if (isNaN(num)) {
+            logger.warn(
+              { blockUuid, segment, fullPath: block.path },
+              'Found non-numeric segment in block path - this should not happen'
+            );
+            return null;
+          }
+          return num;
+        })
+        .filter((id): id is number => id !== null);
+      const allBlockIds = [...pathSegments, block.id];
 
-      if (pathSegments.length === 0) {
-        return [];
+      if (allBlockIds.length === 1) {
+        // Only current block, return it as single breadcrumb (root level)
+        return [
+          {
+            id: block.id,
+            uuid: block.uuid,
+            name: block.name,
+            path: `/${block.uuid}`,
+          },
+        ];
       }
 
+      // Query all blocks in the hierarchy (parents + current)
       const breadcrumbBlocks = await db
         .select({
           id: blocks.id,
@@ -329,17 +365,35 @@ export default class BlockRepository {
           name: blocks.name,
         })
         .from(blocks)
-        .where(sql`${blocks.id} IN (${pathSegments.join(',')})`)
+        .where(inArray(blocks.id, allBlockIds))
         .orderBy(
-          sql`CASE ${pathSegments.map((id, index) => `WHEN ${blocks.id} = ${id} THEN ${index}`).join(' ')} END`
+          sql`CASE ${sql.join(
+            allBlockIds.map(
+              (id, index) => sql`WHEN ${blocks.id} = ${id} THEN ${index}`
+            ),
+            sql` `
+          )} END`
         );
 
+      // Build incremental paths for navigation
+      const breadcrumbsWithPaths: BreadcrumbDto[] = breadcrumbBlocks.map(
+        (breadcrumb, index) => ({
+          id: breadcrumb.id,
+          uuid: breadcrumb.uuid,
+          name: breadcrumb.name,
+          path: `/${breadcrumbBlocks
+            .slice(0, index + 1)
+            .map((b) => b.uuid)
+            .join('/')}`,
+        })
+      );
+
       logger.info(
-        { blockUuid, breadcrumbCount: breadcrumbBlocks.length },
+        { blockUuid, breadcrumbCount: breadcrumbsWithPaths.length },
         'Breadcrumbs retrieved successfully'
       );
 
-      return breadcrumbBlocks;
+      return breadcrumbsWithPaths;
     } catch (error) {
       logger.error({ blockUuid, error }, 'Failed to get breadcrumbs');
       throw new DatabaseError('Failed to get breadcrumbs', { error });

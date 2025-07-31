@@ -21,6 +21,7 @@ export type BreadcrumbDto = {
   id: number;
   uuid: string;
   name: string;
+  path: string;
 };
 
 export type GetBreadcrumbsResponseDto = {
