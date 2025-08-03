@@ -2,7 +2,6 @@ import 'reflect-metadata';
 
 import { Hono } from 'hono';
 import { container, inject, injectable } from 'tsyringe';
-import { corsMiddleware } from './lib/cors-middleware';
 import { errorHandler, notFoundHandler } from './lib/error-handler';
 import { requestLogger } from './lib/logger';
 import AuthRoute from './modules/auth/route';
@@ -39,7 +38,6 @@ export default class Main {
 
   private setupMiddlewares() {
     this.app.use(requestLogger());
-    this.app.use('*', corsMiddleware);
   }
 
   private setupRoutes() {
