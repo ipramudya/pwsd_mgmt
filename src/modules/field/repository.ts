@@ -457,7 +457,11 @@ export default class FieldRepository {
     try {
       logger.info({ fieldId, updates }, 'Updating field metadata');
 
-      const updateData: { name?: string; type?: string; updatedAt: Date } = {
+      const updateData: {
+        name?: string;
+        type?: 'text' | 'password' | 'todo';
+        updatedAt: Date;
+      } = {
         updatedAt: new Date(),
       };
 
@@ -466,13 +470,10 @@ export default class FieldRepository {
       }
 
       if (updates.type !== undefined) {
-        updateData.type = updates.type;
+        updateData.type = updates.type as 'text' | 'password' | 'todo';
       }
 
-      await db
-        .update(fields)
-        .set(updateData)
-        .where(eq(fields.uuid, fieldId));
+      await db.update(fields).set(updateData).where(eq(fields.uuid, fieldId));
 
       logger.info({ fieldId }, 'Field metadata updated successfully');
     } catch (error) {

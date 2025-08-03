@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { container, inject, injectable } from 'tsyringe';
+import { authMiddleware } from '../../lib/auth-middleware';
 import type { AppHono } from '../../types';
 import AuthService from './service';
 import { authValidations } from './validation';
@@ -20,6 +21,7 @@ export default class AuthRoute {
     this.useRegisterRoute();
     this.useLoginRoute();
     this.useRefreshTokenRoute();
+    this.useChangePasswordRoute();
   }
 
   private useRegisterRoute() {
@@ -68,6 +70,27 @@ export default class AuthRoute {
             success: true,
             data: result,
             message: 'Token refreshed successfully',
+          },
+          200
+        );
+      }
+    );
+  }
+
+  private useChangePasswordRoute() {
+    this.route.put(
+      '/change-password',
+      authMiddleware,
+      authValidations.changePassword,
+      async (c) => {
+        const body = c.req.valid('json');
+        const result = await this.authService.changePassword(c, body);
+
+        return c.json(
+          {
+            success: true,
+            data: result,
+            message: result.message,
           },
           200
         );

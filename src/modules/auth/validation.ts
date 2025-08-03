@@ -86,6 +86,45 @@ const refreshToken = z.object({
     ),
 });
 
+const changePassword = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1, 'Current password is required')
+      .min(
+        PASSWORD_MIN_LENGTH,
+        `Current password must be at least ${PASSWORD_MIN_LENGTH} characters`
+      )
+      .max(
+        PASSWORD_MAX_LENGTH,
+        `Current password must not exceed ${PASSWORD_MAX_LENGTH} characters`
+      ),
+    newPassword: z
+      .string()
+      .min(1, 'New password is required')
+      .min(
+        PASSWORD_MIN_LENGTH,
+        `New password must be at least ${PASSWORD_MIN_LENGTH} characters`
+      )
+      .max(
+        PASSWORD_MAX_LENGTH,
+        `New password must not exceed ${PASSWORD_MAX_LENGTH} characters`
+      )
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/,
+        'New password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'
+      ),
+    confirmNewPassword: z.string().min(1, 'Password confirmation is required'),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "New passwords don't match",
+    path: ['confirmNewPassword'],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: 'New password must be different from current password',
+    path: ['newPassword'],
+  });
+
 export const authValidations = {
   login: zValidator('json', login, 'Login validation failed'),
   register: zValidator('json', register, 'Registration validation failed'),
@@ -93,5 +132,10 @@ export const authValidations = {
     'json',
     refreshToken,
     'Refresh token validation failed'
+  ),
+  changePassword: zValidator(
+    'json',
+    changePassword,
+    'Change password validation failed'
   ),
 };

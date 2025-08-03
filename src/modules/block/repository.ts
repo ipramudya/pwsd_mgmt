@@ -9,6 +9,7 @@ import {
   like,
   lt,
   sql,
+  type SQL,
 } from 'drizzle-orm';
 import { container, injectable } from 'tsyringe';
 import { createDatabase } from '../../lib/database';
@@ -121,6 +122,7 @@ export default class BlockRepository {
     }
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Legacy function needs refactoring
   async getBlocks(
     c: AppContext,
     query: GetBlocksQuery
@@ -144,21 +146,92 @@ export default class BlockRepository {
       let whereCondition = baseConditions;
 
       if (query.cursor) {
-        const cursorCondition =
-          query.sort === 'desc'
-            ? lt(blocks[query.sortBy], query.cursor)
-            : gt(blocks[query.sortBy], query.cursor);
-        whereCondition = and(baseConditions, cursorCondition);
+        try {
+          let cursorCondition: SQL | undefined;
+
+          if (query.sortBy === 'createdAt' || query.sortBy === 'updatedAt') {
+            // For date fields, convert cursor to Date object
+            let dateCursor: Date | undefined;
+
+            const date = new Date(query.cursor);
+            if (Number.isNaN(date.getTime())) {
+              // If invalid date, try to parse as numeric timestamp
+              const numericCursor = Number(query.cursor);
+              if (Number.isNaN(numericCursor)) {
+                logger.warn(
+                  { cursor: query.cursor, sortBy: query.sortBy },
+                  'Invalid cursor value, skipping cursor-based pagination'
+                );
+                dateCursor = undefined;
+              } else {
+                // Treat as Unix timestamp and convert to Date
+                dateCursor = new Date(numericCursor * 1000);
+              }
+            } else {
+              dateCursor = date;
+            }
+
+            if (dateCursor && !Number.isNaN(dateCursor.getTime())) {
+              cursorCondition =
+                query.sort === 'desc'
+                  ? lt(blocks[query.sortBy], dateCursor)
+                  : gt(blocks[query.sortBy], dateCursor);
+            }
+          } else if (query.sortBy === 'name') {
+            // For name field, use string cursor
+            cursorCondition =
+              query.sort === 'desc'
+                ? lt(blocks[query.sortBy], query.cursor)
+                : gt(blocks[query.sortBy], query.cursor);
+          } else if (query.sortBy === 'blockType') {
+            // For blockType field, validate cursor value and use string cursor
+            if (query.cursor === 'container' || query.cursor === 'terminal') {
+              cursorCondition =
+                query.sort === 'desc'
+                  ? gt(blocks[query.sortBy], query.cursor) // Reversed because we reverse sort direction
+                  : lt(blocks[query.sortBy], query.cursor);
+            } else {
+              logger.warn(
+                { cursor: query.cursor, sortBy: query.sortBy },
+                'Invalid blockType cursor value, skipping cursor-based pagination'
+              );
+              whereCondition = baseConditions;
+            }
+          }
+
+          if (cursorCondition) {
+            whereCondition = and(baseConditions, cursorCondition);
+          }
+        } catch (error) {
+          logger.warn(
+            { cursor: query.cursor, sortBy: query.sortBy, error },
+            'Failed to parse cursor, skipping cursor-based pagination'
+          );
+          whereCondition = baseConditions;
+        }
       }
 
       const orderDirection = query.sort === 'desc' ? desc : asc;
-      const sortColumn = blocks[query.sortBy];
+
+      let orderByClause: SQL[];
+      if (query.sortBy === 'blockType') {
+        // For blockType sorting: 'desc' = container first, 'asc' = terminal first
+        // Container comes before terminal alphabetically, so we reverse the sort direction
+        const blockTypeDirection = query.sort === 'desc' ? asc : desc;
+        orderByClause = [
+          blockTypeDirection(blocks.blockType),
+          desc(blocks.createdAt),
+        ];
+      } else {
+        const sortColumn = blocks[query.sortBy];
+        orderByClause = [orderDirection(sortColumn)];
+      }
 
       const results = await db
         .select()
         .from(blocks)
         .where(whereCondition)
-        .orderBy(orderDirection(sortColumn))
+        .orderBy(...orderByClause)
         .limit(query.limit + 1);
 
       const hasNext = results.length > query.limit;
@@ -331,9 +404,9 @@ export default class BlockRepository {
       // Filter out UUIDs and keep only numeric IDs
       const rawSegments = block.path.split('/').filter(Boolean);
       const pathSegments = rawSegments
-        .map(segment => {
+        .map((segment) => {
           const num = Number(segment);
-          if (isNaN(num)) {
+          if (Number.isNaN(num)) {
             logger.warn(
               { blockUuid, segment, fullPath: block.path },
               'Found non-numeric segment in block path - this should not happen'

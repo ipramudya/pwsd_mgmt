@@ -15,6 +15,12 @@ export type RefreshTokenRequestDto = {
   refreshToken: string;
 };
 
+export type ChangePasswordRequestDto = {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+};
+
 export type AccountDto = {
   id: number;
   uuid: string;
@@ -36,6 +42,10 @@ export type RegisterResponseDto = {
 
 export type RefreshTokenResponseDto = {
   tokens: TokenPair;
+};
+
+export type ChangePasswordResponseDto = {
+  message: string;
 };
 
 export type CreateAccountInput = {

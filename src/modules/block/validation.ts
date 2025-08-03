@@ -44,7 +44,7 @@ const getBlocks = z.object({
   cursor: z.string().optional(),
   sort: z.enum(['asc', 'desc']).optional().default('desc'),
   sortBy: z
-    .enum(['createdAt', 'updatedAt', 'name'])
+    .enum(['createdAt', 'updatedAt', 'name', 'blockType'])
     .optional()
     .default('createdAt'),
   parentId: z.string().uuid('Parent ID must be a valid UUID').optional(),

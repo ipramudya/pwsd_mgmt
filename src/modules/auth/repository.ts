@@ -157,6 +157,30 @@ export default class AuthRepository {
       throw new DatabaseError('Failed to update last login', { error });
     }
   }
+
+  async updatePassword(
+    c: AppContext,
+    uuid: string,
+    hashedPassword: string
+  ): Promise<void> {
+    const logger = getLogger(c, 'auth-repository');
+    const db = createDatabase(c);
+
+    try {
+      logger.info({ uuid }, 'Updating account password');
+      await db
+        .update(accounts)
+        .set({
+          password: hashedPassword,
+          updatedAt: sql`(unixepoch())`,
+        })
+        .where(eq(accounts.uuid, uuid));
+      logger.info({ uuid }, 'Account password updated successfully');
+    } catch (error) {
+      logger.error({ uuid, error }, 'Failed to update account password');
+      throw new DatabaseError('Failed to update account password', { error });
+    }
+  }
 }
 
 container.registerSingleton(AuthRepository);

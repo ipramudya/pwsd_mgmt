@@ -16,6 +16,8 @@ import type { AppContext } from '../../types';
 import type {
   AccountDto,
   AccountRecord,
+  ChangePasswordRequestDto,
+  ChangePasswordResponseDto,
   LoginRequestDto,
   LoginResponseDto,
   RefreshTokenRequestDto,
@@ -204,6 +206,73 @@ export default class AuthService {
     );
 
     return { tokens };
+  };
+
+  changePassword = async (
+    c: AppContext,
+    input: ChangePasswordRequestDto
+  ): Promise<ChangePasswordResponseDto> => {
+    const logger = getLogger(c, 'auth-service');
+    const userId = c.get('userId');
+
+    if (!userId) {
+      logger.error('Change password failed: user ID not found in context');
+      throw new AuthenticationError('User not authenticated');
+    }
+
+    logger.info({ userId }, 'Attempting password change');
+
+    // Get current user account
+    const account = await this.repository.findAccountByUuid(c, userId);
+    if (!account) {
+      logger.warn({ userId }, 'Change password failed: account not found');
+      throw new NotFoundError('Account not found');
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await verifyPassword(
+      input.currentPassword,
+      account.password
+    );
+    if (!isCurrentPasswordValid) {
+      logger.warn(
+        { userId, username: account.username },
+        'Change password failed: invalid current password'
+      );
+      throw new AuthenticationError('Current password is incorrect');
+    }
+
+    // Validate new password strength
+    const passwordValidation = validatePasswordStrength(input.newPassword);
+    if (!passwordValidation.isValid) {
+      logger.warn(
+        {
+          userId,
+          username: account.username,
+          errors: passwordValidation.errors,
+        },
+        'Change password failed: new password validation failed'
+      );
+      throw new ValidationError(
+        `New password validation failed: ${passwordValidation.errors.join(', ')}`,
+        { errors: passwordValidation.errors }
+      );
+    }
+
+    // Hash new password
+    const hashedNewPassword = await hashPassword(input.newPassword);
+
+    // Update password in database
+    await this.repository.updatePassword(c, userId, hashedNewPassword);
+
+    logger.info(
+      { userId, username: account.username },
+      'Password changed successfully'
+    );
+
+    return {
+      message: 'Password changed successfully',
+    };
   };
 
   private toAccountDto = (account: AccountRecord): AccountDto => {

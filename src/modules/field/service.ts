@@ -390,6 +390,7 @@ export default class FieldService {
     }
 
     // Perform batch updates with transaction-like behavior
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Legacy function needs refactoring
     const updatePromises = input.fields.map(async (fieldUpdate) => {
       const field = fieldsToUpdate.find((f) => f.uuid === fieldUpdate.fieldId);
       if (!field) {
@@ -407,7 +408,8 @@ export default class FieldService {
       );
 
       // Check if type is changing
-      const isTypeChanging = fieldUpdate.type && fieldUpdate.type !== field.type;
+      const isTypeChanging =
+        fieldUpdate.type && fieldUpdate.type !== field.type;
       const targetType = fieldUpdate.type || field.type;
 
       if (isTypeChanging) {
@@ -431,6 +433,9 @@ export default class FieldService {
           case 'todo':
             await this.repository.deleteTodoFieldData(c, field.uuid);
             break;
+          default:
+            // No action needed for unknown types
+            break;
         }
       }
 
@@ -444,7 +449,11 @@ export default class FieldService {
       }
 
       if (Object.keys(metadataUpdates).length > 0) {
-        await this.repository.updateFieldMetadata(c, field.uuid, metadataUpdates);
+        await this.repository.updateFieldMetadata(
+          c,
+          field.uuid,
+          metadataUpdates
+        );
       }
 
       // Update or create field data based on target type

@@ -9,7 +9,7 @@ export type GetBlocksRequestDto = {
   limit?: number;
   cursor?: string;
   sort?: 'asc' | 'desc';
-  sortBy?: 'createdAt' | 'updatedAt' | 'name';
+  sortBy?: 'createdAt' | 'updatedAt' | 'name' | 'blockType';
   parentId?: string;
 };
 
@@ -86,7 +86,7 @@ export type GetBlocksQuery = {
   limit: number;
   cursor?: string;
   sort: 'asc' | 'desc';
-  sortBy: 'createdAt' | 'updatedAt' | 'name';
+  sortBy: 'createdAt' | 'updatedAt' | 'name' | 'blockType';
   parentPath: string;
   createdById: string;
 };
