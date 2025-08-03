@@ -6,6 +6,9 @@ type Bindings = {
   JWT_SECRET_REFRESH: string;
   DB_URL: string;
   DB_TOKEN: string;
+  RATE_LIMITER?: {
+    limit: (options: { key: string }) => Promise<{ success: boolean }>;
+  };
 };
 
 type Variables = {

@@ -2,8 +2,10 @@ import 'reflect-metadata';
 
 import { Hono } from 'hono';
 import { container, inject, injectable } from 'tsyringe';
+import { corsConfig } from './lib/cors-config';
 import { errorHandler, notFoundHandler } from './lib/error-handler';
 import { requestLogger } from './lib/logger';
+import { rateLimiterConfig } from './lib/rate-limiter';
 import AuthRoute from './modules/auth/route';
 import BlockRoute from './modules/block/route';
 import DataTransferRoute from './modules/data-transfer/route';
@@ -37,6 +39,8 @@ export default class Main {
   }
 
   private setupMiddlewares() {
+    this.app.use('*', corsConfig());
+    this.app.use('*', rateLimiterConfig());
     this.app.use(requestLogger());
   }
 
