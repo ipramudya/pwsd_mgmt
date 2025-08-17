@@ -52,6 +52,8 @@ export type CreateAccountInput = {
   uuid: string;
   username: string;
   password: string;
+  passwordHashVersion?: 'bcrypt' | 'pbkdf2';
+  passwordSalt?: string;
 };
 
 export type AccountRecord = {
@@ -59,6 +61,8 @@ export type AccountRecord = {
   uuid: string;
   username: string;
   password: string;
+  passwordHashVersion: 'bcrypt' | 'pbkdf2';
+  passwordSalt: string | null;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date;

@@ -14,6 +14,10 @@ export const accounts = sqliteTable(
     uuid: text().notNull().unique(),
     username: text().notNull().unique(),
     password: text().notNull(),
+    passwordHashVersion: text({ enum: ['bcrypt', 'pbkdf2'] })
+      .notNull()
+      .default('bcrypt'),
+    passwordSalt: text(),
     createdAt: integer({ mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

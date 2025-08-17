@@ -4,6 +4,7 @@ import {
   AuthenticationError,
   ConflictError,
   NotFoundError,
+  PasswordMigrationRequiredError,
   ValidationError,
 } from '../../lib/error-handler';
 import { getLogger } from '../../lib/logger';
@@ -69,13 +70,15 @@ export default class AuthService {
       );
     }
 
-    const hashedPassword = await hashPassword(input.password);
+    const passwordHashResult = await hashPassword(input.password, 'pbkdf2');
     const uuid = randomUUID();
 
     await this.repository.createAccount(c, {
       uuid,
       username: input.username,
-      password: hashedPassword,
+      password: passwordHashResult.hash,
+      passwordHashVersion: passwordHashResult.version,
+      passwordSalt: passwordHashResult.salt,
     });
 
     const createdAccount = await this.repository.findAccountByUuid(c, uuid);
@@ -123,16 +126,65 @@ export default class AuthService {
       throw new AuthenticationError('Invalid username or password');
     }
 
-    const isPasswordValid = await verifyPassword(
-      input.password,
-      account.password
+    logger.info(
+      { 
+        username: input.username, 
+        uuid: account.uuid,
+        passwordHashVersion: account.passwordHashVersion,
+        hasSalt: !!account.passwordSalt
+      },
+      'Password verification starting'
     );
-    if (!isPasswordValid) {
+
+    const verificationResult = await verifyPassword(
+      input.password,
+      account.password,
+      account.passwordHashVersion,
+      account.passwordSalt
+    );
+
+    logger.info(
+      {
+        username: input.username,
+        uuid: account.uuid,
+        valid: verificationResult.valid,
+        needsMigration: verificationResult.needsMigration,
+        error: verificationResult.error
+      },
+      'Password verification completed'
+    );
+
+    if (verificationResult.error === 'PASSWORD_MIGRATION_REQUIRED') {
+      logger.warn(
+        { username: input.username, uuid: account.uuid },
+        'Login failed: password migration required'
+      );
+      throw new PasswordMigrationRequiredError(
+        'Your password needs to be migrated to our new security system. Please reset your password or contact support.'
+      );
+    }
+
+    if (!verificationResult.valid) {
       logger.warn(
         { username: input.username, uuid: account.uuid },
         'Login failed: invalid password'
       );
       throw new AuthenticationError('Invalid username or password');
+    }
+
+    // Migrate password if needed
+    if (verificationResult.needsMigration) {
+      logger.info(
+        { username: input.username, uuid: account.uuid },
+        'Migrating password to PBKDF2'
+      );
+      const newPasswordHash = await hashPassword(input.password, 'pbkdf2');
+      await this.repository.migratePassword(
+        c,
+        account.uuid,
+        newPasswordHash.hash,
+        newPasswordHash.salt || ''
+      );
     }
 
     await this.repository.updateLastLogin(c, account.uuid);
@@ -230,11 +282,24 @@ export default class AuthService {
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await verifyPassword(
+    const verificationResult = await verifyPassword(
       input.currentPassword,
-      account.password
+      account.password,
+      account.passwordHashVersion,
+      account.passwordSalt
     );
-    if (!isCurrentPasswordValid) {
+
+    if (verificationResult.error === 'PASSWORD_MIGRATION_REQUIRED') {
+      logger.warn(
+        { userId, username: account.username },
+        'Change password failed: password migration required'
+      );
+      throw new PasswordMigrationRequiredError(
+        'Your password needs to be migrated to our new security system. Please contact support.'
+      );
+    }
+
+    if (!verificationResult.valid) {
       logger.warn(
         { userId, username: account.username },
         'Change password failed: invalid current password'
@@ -259,11 +324,17 @@ export default class AuthService {
       );
     }
 
-    // Hash new password
-    const hashedNewPassword = await hashPassword(input.newPassword);
+    // Hash new password with PBKDF2
+    const newPasswordHash = await hashPassword(input.newPassword, 'pbkdf2');
 
     // Update password in database
-    await this.repository.updatePassword(c, userId, hashedNewPassword);
+    await this.repository.updatePassword(
+      c,
+      userId,
+      newPasswordHash.hash,
+      newPasswordHash.version,
+      newPasswordHash.salt
+    );
 
     logger.info(
       { userId, username: account.username },

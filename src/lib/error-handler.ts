@@ -12,6 +12,7 @@ export enum ErrorCode {
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
   DATABASE_ERROR = 'DATABASE_ERROR',
   INTERNAL_SERVER_ERROR = 'INTERNAL_SERVER_ERROR',
+  PASSWORD_MIGRATION_REQUIRED = 'PASSWORD_MIGRATION_REQUIRED',
 }
 
 export interface ErrorResponse {
@@ -80,6 +81,15 @@ export class DatabaseError extends AppError {
     details?: Record<string, unknown>
   ) {
     super(500, ErrorCode.DATABASE_ERROR, message, details);
+  }
+}
+
+export class PasswordMigrationRequiredError extends AppError {
+  constructor(
+    message = 'Password migration required. Please reset your password or contact support.',
+    details?: Record<string, unknown>
+  ) {
+    super(409, ErrorCode.PASSWORD_MIGRATION_REQUIRED, message, details);
   }
 }
 

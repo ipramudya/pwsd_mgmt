@@ -22,6 +22,8 @@ export default class AuthRepository {
         uuid: input.uuid,
         username: input.username,
         password: input.password,
+        passwordHashVersion: input.passwordHashVersion || 'bcrypt',
+        passwordSalt: input.passwordSalt || null,
       });
       logger.info(
         { uuid: input.uuid, username: input.username },
@@ -65,6 +67,8 @@ export default class AuthRepository {
         uuid: account.uuid,
         username: account.username,
         password: account.password,
+        passwordHashVersion: (account.passwordHashVersion || 'bcrypt') as 'bcrypt' | 'pbkdf2',
+        passwordSalt: account.passwordSalt,
         createdAt: new Date(Number(account.createdAt) * 1000),
         updatedAt: new Date(Number(account.updatedAt) * 1000),
         lastLoginAt: new Date(Number(account.lastLoginAt) * 1000),
@@ -128,6 +132,8 @@ export default class AuthRepository {
         uuid: account.uuid,
         username: account.username,
         password: account.password,
+        passwordHashVersion: (account.passwordHashVersion || 'bcrypt') as 'bcrypt' | 'pbkdf2',
+        passwordSalt: account.passwordSalt,
         createdAt: new Date(Number(account.createdAt) * 1000),
         updatedAt: new Date(Number(account.updatedAt) * 1000),
         lastLoginAt: new Date(Number(account.lastLoginAt) * 1000),
@@ -161,7 +167,9 @@ export default class AuthRepository {
   async updatePassword(
     c: AppContext,
     uuid: string,
-    hashedPassword: string
+    hashedPassword: string,
+    passwordHashVersion: 'bcrypt' | 'pbkdf2' = 'bcrypt',
+    passwordSalt?: string | null
   ): Promise<void> {
     const logger = getLogger(c, 'auth-repository');
     const db = createDatabase(c);
@@ -172,6 +180,8 @@ export default class AuthRepository {
         .update(accounts)
         .set({
           password: hashedPassword,
+          passwordHashVersion,
+          passwordSalt: passwordSalt || null,
           updatedAt: sql`(unixepoch())`,
         })
         .where(eq(accounts.uuid, uuid));
@@ -179,6 +189,33 @@ export default class AuthRepository {
     } catch (error) {
       logger.error({ uuid, error }, 'Failed to update account password');
       throw new DatabaseError('Failed to update account password', { error });
+    }
+  }
+
+  async migratePassword(
+    c: AppContext,
+    uuid: string,
+    hashedPassword: string,
+    passwordSalt: string
+  ): Promise<void> {
+    const logger = getLogger(c, 'auth-repository');
+    const db = createDatabase(c);
+
+    try {
+      logger.info({ uuid }, 'Migrating account password to PBKDF2');
+      await db
+        .update(accounts)
+        .set({
+          password: hashedPassword,
+          passwordHashVersion: 'pbkdf2',
+          passwordSalt,
+          updatedAt: sql`(unixepoch())`,
+        })
+        .where(eq(accounts.uuid, uuid));
+      logger.info({ uuid }, 'Account password migrated to PBKDF2 successfully');
+    } catch (error) {
+      logger.error({ uuid, error }, 'Failed to migrate account password');
+      throw new DatabaseError('Failed to migrate account password', { error });
     }
   }
 }
